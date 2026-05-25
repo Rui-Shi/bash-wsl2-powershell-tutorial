@@ -1,0 +1,1899 @@
+\documentclass[11pt,a4paper]{article}
+
+% ==========  Packages  ==========
+\usepackage[margin=1in]{geometry}
+\usepackage{setspace}
+\usepackage{parskip}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{tcolorbox}
+\usepackage[colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black,citecolor=blue!60!black]{hyperref}
+
+\setstretch{1.15}
+
+% ==========  Colors  ==========
+\definecolor{bashBg}{HTML}{F8F1E4}
+\definecolor{bashKw}{HTML}{8B2C00}
+\definecolor{bashStr}{HTML}{4F7F4F}
+\definecolor{bashCom}{HTML}{888888}
+\definecolor{bashVar}{HTML}{7B2D8E}
+
+\definecolor{pyBg}{HTML}{EAF1F8}
+\definecolor{pyKw}{HTML}{0050A0}
+\definecolor{pyStr}{HTML}{4F7F4F}
+\definecolor{pyCom}{HTML}{888888}
+
+\definecolor{pwshBg}{HTML}{F4F6FA}
+\definecolor{pwshKw}{HTML}{0050A0}
+\definecolor{pwshStr}{HTML}{8B2C00}
+\definecolor{pwshCom}{HTML}{4F7F4F}
+
+% ==========  Listing styles  ==========
+\lstdefinestyle{bashstyle}{
+  language=bash,
+  backgroundcolor=\color{bashBg},
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{bashKw}\bfseries,
+  stringstyle=\color{bashStr},
+  commentstyle=\color{bashCom}\itshape,
+  showstringspaces=false,
+  breaklines=true,
+  breakatwhitespace=true,
+  frame=single,
+  framesep=4pt,
+  rulecolor=\color{bashKw!30},
+  xleftmargin=8pt,
+  xrightmargin=4pt,
+  aboveskip=8pt,
+  belowskip=8pt,
+  columns=fullflexible,
+  keepspaces=true
+}
+
+\lstdefinestyle{pystyle}{
+  language=Python,
+  backgroundcolor=\color{pyBg},
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{pyKw}\bfseries,
+  stringstyle=\color{pyStr},
+  commentstyle=\color{pyCom}\itshape,
+  showstringspaces=false,
+  breaklines=true,
+  breakatwhitespace=true,
+  frame=single,
+  framesep=4pt,
+  rulecolor=\color{pyKw!30},
+  xleftmargin=8pt,
+  xrightmargin=4pt,
+  aboveskip=8pt,
+  belowskip=8pt,
+  columns=fullflexible,
+  keepspaces=true
+}
+
+\lstdefinelanguage{PowerShellAlt}{
+  morekeywords={if,else,elseif,foreach,for,while,do,switch,return,function,param,
+    Get-ChildItem,Set-Location,Get-Content,Set-Content,Add-Content,
+    Where-Object,Select-Object,ForEach-Object,Sort-Object,Group-Object,Measure-Object,
+    Import-Csv,Export-Csv,ConvertFrom-Json,ConvertTo-Json,
+    Invoke-RestMethod,New-Item,Remove-Item,Test-Path},
+  sensitive=false,
+  morecomment=[l]{\#},
+  morestring=[b]",
+  morestring=[b]'
+}
+
+\lstdefinestyle{pwshstyle}{
+  language=PowerShellAlt,
+  backgroundcolor=\color{pwshBg},
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{pwshKw}\bfseries,
+  stringstyle=\color{pwshStr},
+  commentstyle=\color{pwshCom}\itshape,
+  showstringspaces=false,
+  breaklines=true,
+  breakatwhitespace=true,
+  frame=single,
+  framesep=4pt,
+  rulecolor=\color{pwshKw!30},
+  xleftmargin=8pt,
+  xrightmargin=4pt,
+  aboveskip=8pt,
+  belowskip=8pt,
+  columns=fullflexible,
+  keepspaces=true
+}
+
+\lstset{style=bashstyle}
+
+% ==========  Macros  ==========
+\newcommand{\cmd}[1]{\texttt{\textcolor{bashKw}{#1}}}
+\newcommand{\pcmd}[1]{\texttt{\textcolor{pyKw}{#1}}}
+\newcommand{\pscmd}[1]{\texttt{\textcolor{pwshKw}{#1}}}
+
+% Callout boxes
+\newtcolorbox{comparepy}[1][]{
+  colback=yellow!8,
+  colframe=yellow!50!orange,
+  fonttitle=\bfseries,
+  title=Compare with Python,
+  sharp corners,
+  boxrule=0.4pt,
+  left=8pt,right=8pt,top=4pt,bottom=4pt,
+  #1
+}
+
+\newtcolorbox{compareps}[1][]{
+  colback=blue!4,
+  colframe=blue!40,
+  fonttitle=\bfseries,
+  title=If you read the PowerShell tutorial,
+  sharp corners,
+  boxrule=0.4pt,
+  left=8pt,right=8pt,top=4pt,bottom=4pt,
+  #1
+}
+
+\newtcolorbox{gotcha}[1][]{
+  colback=red!5,
+  colframe=red!50,
+  fonttitle=\bfseries,
+  title=Gotcha,
+  sharp corners,
+  boxrule=0.4pt,
+  left=8pt,right=8pt,top=4pt,bottom=4pt,
+  #1
+}
+
+% ==========  Title  ==========
+\title{\bfseries Bash on WSL2 for the Data \& ML Engineer\\
+\large A from-zero tutorial for Python developers\\moving onto Linux through Windows}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+This tutorial takes you from \emph{nothing installed} to \emph{daily-driver
+bash on Linux} in one document, assuming only that you know Python. You'll
+install WSL2 and Ubuntu, learn the bash mental model, work with files,
+pipes, streams, CSV, JSON, and HTTP, manage Python with \texttt{uv} and
+\texttt{venv}, run Docker containers, get a GPU visible from Linux for
+PyTorch, and write your first ETL script. Every section uses realistic
+data and a Python comparison where it helps. If you have read the
+companion PowerShell tutorial, occasional blue callouts cross-reference
+the two -- but PowerShell knowledge is not required.
+\end{abstract}
+
+\tableofcontents
+\clearpage
+
+% =========================================================
+\part*{Part I --- WSL2 Setup and Mental Model}
+\addcontentsline{toc}{section}{Part I --- WSL2 Setup and Mental Model}
+% =========================================================
+
+\section{What WSL2 Is, and Why Bash for Data Work}
+
+WSL2 -- the \emph{Windows Subsystem for Linux, version 2} -- is a real
+Linux kernel that Microsoft ships as a built-in Windows feature. It is
+not an emulator and not a virtual machine in the heavy sense: it boots
+in under a second, shares your CPU and memory with Windows, and lets
+you access your Windows drives at \texttt{/mnt/c/}, \texttt{/mnt/d/},
+etc. Inside it, you get a complete Ubuntu (or Debian, or Fedora\ldots)
+userland that behaves identically to a Linux server.
+
+For a data or ML engineer, the case for living in WSL2 is simple:
+
+\begin{itemize}[leftmargin=*]
+\item Every production system you'll touch runs Linux: EC2 instances,
+Docker containers, Kubernetes pods, CI runners, ML training rigs.
+\item Every modern data tool (\texttt{uv}, \texttt{docker}, \texttt{aws},
+\texttt{kubectl}, \texttt{terraform}, \texttt{dbt}, \texttt{spark-submit},
+\texttt{mongosh}, \texttt{mysql}) is built bash-first.
+\item Tutorials, Stack Overflow answers, and your future colleagues
+assume bash. Skills transfer to every job; PowerShell skills mostly do
+not.
+\item Python on WSL2 is smoother than Python on native Windows -- no
+path-separator surprises, no \texttt{\textbackslash{}r\textbackslash{}n}
+line-ending bugs, native CUDA extensions install cleanly.
+\end{itemize}
+
+\subsection*{The bash mental model in one paragraph}
+
+Every bash command reads bytes from \emph{standard input} (stdin) and
+writes bytes to \emph{standard output} (stdout) and \emph{standard
+error} (stderr). The pipe operator \texttt{|} connects one command's
+stdout to the next command's stdin. Redirection (\texttt{>},
+\texttt{>>}, \texttt{<}) connects those streams to files. Because
+everything is bytes, you compose programs out of small text-processing
+tools: \texttt{grep} finds lines, \texttt{awk} slices columns,
+\texttt{sed} edits substrings, \texttt{jq} navigates JSON,
+\texttt{sort} and \texttt{uniq} aggregate. Master this composition
+pattern and you can solve any data-shaping problem on the command line.
+
+\begin{compareps}
+PowerShell pipes \emph{objects} (records with named properties); bash
+pipes \emph{bytes}. Both work, and PowerShell's model is arguably
+more elegant for structured data -- but every Linux server in the
+world runs bash, so the byte pipeline is what pays the bills.
+Tools like \texttt{jq} (for JSON) and \texttt{mlr} (for CSV)
+recover most of PowerShell's structured-pipeline ergonomics inside
+bash.
+\end{compareps}
+
+% =========================================================
+\section{Installing WSL2 and Ubuntu}
+
+The install is one command. From a normal (non-admin) Windows
+PowerShell or Command Prompt:
+
+\begin{lstlisting}[style=pwshstyle]
+wsl --install -d Ubuntu
+\end{lstlisting}
+
+This downloads the WSL2 kernel, installs Ubuntu (the most
+widely-supported distro for data work), and reboots once. After
+reboot, Ubuntu boots and asks for a Linux username and password. Use
+something short -- you'll type the username constantly -- and pick a
+password you can remember; you'll need it for \texttt{sudo} (privileged
+commands).
+
+After first login, update the package index and install a small
+starter kit:
+
+\begin{lstlisting}[style=bashstyle]
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y \
+    build-essential git curl wget unzip jq htop tree \
+    ca-certificates gnupg lsb-release
+\end{lstlisting}
+
+What each tool gives you:
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Package} & \textbf{Why} \\
+\midrule
+\texttt{build-essential} & C/C++ compilers; needed by some pip packages \\
+\texttt{git}            & Source control \\
+\texttt{curl} / \texttt{wget} & Fetch URLs (curl is the modern default) \\
+\texttt{unzip}          & Unzip archives \\
+\texttt{jq}             & Command-line JSON processor (essential) \\
+\texttt{htop}           & Interactive process viewer (better \texttt{top}) \\
+\texttt{tree}           & Pretty directory tree \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{Windows Terminal as your shell host}
+
+Open \textbf{Windows Terminal} (preinstalled on Windows 11; otherwise
+install from the Microsoft Store). Click the dropdown next to the
+tab bar and pick \texttt{Ubuntu}. You can pin Ubuntu as the default
+profile in Settings $\to$ Startup. From now on, every time you want a
+Linux shell, you open Windows Terminal and you're there.
+
+\begin{lstlisting}[style=bashstyle]
+# Confirm you're in Ubuntu:
+cat /etc/os-release
+# NAME="Ubuntu"
+# VERSION="24.04.x LTS (Noble Numbat)"
+# ...
+
+uname -a              # kernel info
+whoami                # your linux username
+\end{lstlisting}
+
+\subsection*{The \texttt{sudo} command}
+
+You'll see \texttt{sudo} in front of many commands. It runs the next
+command as root (the Linux superuser). The first \texttt{sudo} in a
+session asks for your password; subsequent ones within a few minutes
+don't. Use it only when you need to: installing system packages,
+editing files in \texttt{/etc/}, managing services. \textbf{Never} use
+\texttt{sudo pip install} -- that pollutes the system Python.
+
+% =========================================================
+\section{The Linux Filesystem and Where Your Code Lives}
+
+The single most important WSL2 lesson: \textbf{keep your code under
+\texttt{\textasciitilde{}/projects/}, not \texttt{/mnt/c/}}. The
+\texttt{/mnt/c/} mount lets you see your Windows \texttt{C:} drive
+from Linux, which is convenient -- but it goes through a translation
+layer that is roughly 10x slower for everything git, pip, or
+\texttt{node\_modules} touches. Code in your Linux home directory
+lives on the native Linux filesystem and is fast.
+
+\begin{lstlisting}[style=bashstyle]
+echo $HOME              # /home/shiru
+cd ~                    # ~ is shorthand for $HOME
+mkdir -p ~/projects     # this is where every project goes
+cd ~/projects
+\end{lstlisting}
+
+\subsection*{Linux filesystem orientation}
+
+\begin{center}
+\begin{tabular}{p{0.22\linewidth} p{0.70\linewidth}}
+\toprule
+\textbf{Path} & \textbf{What lives there} \\
+\midrule
+\texttt{/}              & The root of the filesystem (everything below) \\
+\texttt{/home/shiru}    & Your home (also written \texttt{\textasciitilde{}}); your projects, config, dotfiles \\
+\texttt{/etc}           & System configuration (DNS, apt sources, hosts, ssh) \\
+\texttt{/var}           & Variable data: logs, package caches, mail \\
+\texttt{/tmp}           & Temporary files; cleared at reboot \\
+\texttt{/usr/bin}       & Most installed programs \\
+\texttt{/usr/local/bin} & Programs you installed manually (precedes \texttt{/usr/bin} on PATH) \\
+\texttt{/opt}           & Optional/third-party packages (e.g. CUDA toolkit) \\
+\texttt{/mnt/c}         & Your Windows C: drive (slow; avoid for code) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{Accessing your Linux files from Windows}
+
+Open Windows Explorer and type \texttt{\textbackslash{}\textbackslash{}wsl\$\textbackslash{}Ubuntu\textbackslash{}home\textbackslash{}shiru}
+in the address bar -- you can browse your Linux home like any
+Windows folder. Drag-and-drop works in both directions. The reverse
+also works: from Linux, your Windows desktop is at
+\texttt{/mnt/c/Users/shiru/Desktop}.
+
+\subsection*{VS Code with the WSL extension}
+
+Install the \textbf{Remote -- WSL} extension in VS Code (on the
+Windows side). Then, from inside WSL, run:
+
+\begin{lstlisting}[style=bashstyle]
+cd ~/projects/my-app
+code .
+\end{lstlisting}
+
+VS Code launches on Windows, but the editor, terminal, debugger,
+and language servers all run inside Ubuntu. Your venvs activate
+correctly; your file paths are POSIX; everything Just Works.
+
+\begin{gotcha}
+If you ever see file paths like \texttt{C:\textbackslash{}Users\textbackslash{}shiru\textbackslash{}projects}
+inside a bash prompt, you've accidentally opened a Windows folder
+from \texttt{/mnt/c/}. \textbf{Close it and reopen from
+\texttt{\textasciitilde{}/projects/}.} You will lose hours to slow
+git operations otherwise.
+\end{gotcha}
+
+\clearpage
+% =========================================================
+\part*{Part II --- Bash Fundamentals}
+\addcontentsline{toc}{section}{Part II --- Bash Fundamentals}
+% =========================================================
+
+\section{Getting Around: Files and Directories}
+
+The dozen commands you'll use every day:
+
+\begin{lstlisting}[style=bashstyle]
+pwd                       # print working directory
+cd ~/projects             # change directory
+cd -                      # cd back to the previous directory
+ls                        # list files
+ls -la                    # long format, including hidden (dot-files)
+ls -lh                    # human-readable sizes (KB, MB, GB)
+ls -lt                    # sort by modification time, newest first
+
+mkdir data                # create one dir
+mkdir -p data/raw/2026    # create nested dirs (-p = "make parents")
+
+touch notes.txt           # create empty file (or update its mtime)
+cp users.csv backup.csv   # copy
+cp -r src/ src_backup/    # copy directory recursively
+mv old.csv new.csv        # rename or move
+rm tmp.csv                # delete a file
+rm -rf .venv/             # delete a directory and everything in it (DANGEROUS)
+
+ln -s ~/data/2026 ./data  # symbolic link (shortcut)
+which python3             # show which python3 is on PATH
+realpath ./users.csv      # absolute path, with symlinks resolved
+
+cat /etc/os-release       # print a file to stdout
+file data.bin             # what KIND of file is this?
+stat users.csv            # size, mtime, permissions, inode
+du -sh ~/.cache           # disk usage of a directory (s = summary, h = human)
+df -h                     # disk space free, per mounted filesystem
+\end{lstlisting}
+
+\subsection*{Globbing (filename patterns)}
+
+The shell expands globs into a list of matching filenames \emph{before}
+the command runs. So \texttt{ls *.csv} runs as \texttt{ls users.csv
+orders.csv ...} after expansion.
+
+\begin{lstlisting}[style=bashstyle]
+ls *.csv                  # every .csv in this directory
+ls data/*.csv             # every .csv directly under data/
+shopt -s globstar          # enable ** (one-time per shell; put it in ~/.bashrc)
+ls **/*.parquet           # every .parquet at any depth
+ls report_2026-??.csv     # ? matches exactly one char: 2026-01..2026-99
+ls report_2026-[01][0-9].csv  # only months 00-19
+\end{lstlisting}
+
+\subsection*{Tab completion is the killer feature}
+
+Hit \texttt{Tab} after typing the first few letters of any
+command, filename, or argument and bash completes it (or shows
+choices if there are several). \texttt{Tab} also works on
+program-specific arguments after you install
+\texttt{bash-completion} -- e.g. \texttt{git ch<Tab>} expands to
+\texttt{git checkout}.
+
+\begin{gotcha}
+\texttt{rm -rf} with a typo in the path is unrecoverable -- there is
+no Recycle Bin in bash. Get in the habit of running \texttt{ls
+<target>} first to confirm what \texttt{rm} would see, and use
+absolute paths (\texttt{rm -rf /home/shiru/.venv}) when in doubt.
+\end{gotcha}
+
+\subsection*{Permissions in 60 seconds}
+
+Every file has three permission triples -- owner, group, other --
+each with read/write/execute bits. \texttt{ls -l} prints them:
+
+\begin{lstlisting}[style=bashstyle]
+-rwxr-xr--  1  shiru  shiru  4096  May 25 11:00  script.sh
+# Owner: rwx (read, write, execute)
+# Group: r-x (read, execute)
+# Other: r-- (read only)
+
+chmod +x script.sh        # make executable for everyone
+chmod 644 notes.txt       # 6=rw-, 4=r--, 4=r--   (the standard "file" mode)
+chmod 755 bin/run.sh      # 7=rwx, 5=r-x, 5=r-x   (the standard "script" mode)
+chown shiru:shiru file    # change owner/group (usually with sudo)
+\end{lstlisting}
+
+For everyday work: scripts need \texttt{chmod +x}; everything else
+keeps the default \texttt{644}.
+
+% =========================================================
+\section{Pipes, Streams, and Redirection}
+
+This is the section that pays for the whole tutorial. The four
+fundamental ideas:
+
+\begin{enumerate}[leftmargin=*]
+\item Every command reads from \texttt{stdin} (file descriptor 0)
+and writes to \texttt{stdout} (1) and \texttt{stderr} (2).
+\item \texttt{|} connects one command's stdout to the next command's stdin.
+\item \texttt{>}, \texttt{>>}, and \texttt{<} connect those streams
+to files.
+\item Commands return an exit code: \texttt{0} = success, anything
+else = failure.
+\end{enumerate}
+
+\subsection*{The pipe}
+
+\begin{lstlisting}[style=bashstyle]
+# How many lines in app.log contain "ERROR"?
+cat app.log | grep ERROR | wc -l
+
+# Equivalent and slightly better (grep can read the file directly):
+grep ERROR app.log | wc -l
+
+# Even better -- grep counts with -c:
+grep -c ERROR app.log
+\end{lstlisting}
+
+\subsection*{Redirection: writing streams to files}
+
+\begin{lstlisting}[style=bashstyle]
+# Overwrite a file with command output:
+ls -la > listing.txt
+
+# Append (don't overwrite):
+date >> log.txt
+
+# Read stdin from a file:
+sort < unsorted.txt
+
+# Send stderr to a file:
+make 2> errors.log
+
+# Send stdout and stderr to the same file:
+make > build.log 2>&1
+# or, in bash specifically:
+make &> build.log
+
+# Discard stderr entirely:
+find / -name "*.log" 2>/dev/null
+
+# Tee -- write to a file AND continue piping:
+ls -la | tee listing.txt | wc -l
+\end{lstlisting}
+
+\subsection*{Chaining with \texttt{\&\&} and \texttt{||}}
+
+\begin{lstlisting}[style=bashstyle]
+# Run cmd2 only if cmd1 succeeded:
+mkdir -p dist && cp build/* dist/
+
+# Run cmd2 only if cmd1 failed:
+ping -c 1 example.com || echo "network is down"
+
+# Sequence (always run both, regardless of result):
+make clean ; make build
+\end{lstlisting}
+
+\subsection*{Exit codes and \texttt{\$?}}
+
+\begin{lstlisting}[style=bashstyle]
+grep foo missing.txt
+echo $?                   # 2 -- file not found
+grep foo present.txt
+echo $?                   # 0 -- match found
+grep nothing present.txt
+echo $?                   # 1 -- no match
+\end{lstlisting}
+
+Exit codes are the bash equivalent of return values for control
+flow. Scripts use them in \texttt{if} conditions; pipelines use
+\texttt{set -o pipefail} (Section~\ref{sec:scripting}) to make
+them propagate.
+
+\begin{comparepy}
+In Python you compose functions; in bash you compose programs by
+piping streams. The shape of a 3-stage pandas method chain
+(\pcmd{df.dropna().query('x > 0').to\_csv(out)}) maps directly to
+a 3-stage shell pipeline. The difference is that bash pipes are
+text; you'll often shape the text into columns or JSON
+(\texttt{awk}, \texttt{jq}) before further processing.
+\end{comparepy}
+
+% =========================================================
+\section{Variables, Quoting, and Substitution}
+
+\subsection*{Variables}
+
+\begin{lstlisting}[style=bashstyle]
+name="shiru"              # NO spaces around = (parse error otherwise)
+count=42
+
+echo $name                # shiru
+echo "$name"              # shiru  (the safe form)
+echo ${name}              # shiru  (braces let you concatenate)
+echo "${name}_v2"         # shiru_v2  (without braces, bash would look for $name_v2)
+\end{lstlisting}
+
+\begin{gotcha}
+\texttt{FOO = bar} (with spaces) is not an assignment -- bash sees
+\texttt{FOO} as a command and tries to run it. Always
+\texttt{FOO=bar}, no spaces.
+\end{gotcha}
+
+\subsection*{Quoting: the one rule you must internalize}
+
+\begin{itemize}[leftmargin=*]
+\item \textbf{Double quotes} interpolate \texttt{\$VAR} and
+\texttt{\$(cmd)} but preserve everything else literally.
+\item \textbf{Single quotes} preserve \emph{everything} literally --
+no interpolation. Use single quotes for regex patterns, jq queries,
+SQL strings with \texttt{\$}.
+\item \textbf{No quotes} causes word-splitting on whitespace and
+glob expansion. Almost always wrong for variables -- always
+\texttt{"\$var"} unless you specifically want splitting.
+\end{itemize}
+
+\begin{lstlisting}[style=bashstyle]
+greeting="hello world"
+echo "$greeting"          # hello world             (one argument)
+echo $greeting            # hello world             (TWO arguments to echo!)
+echo '$greeting'          # $greeting               (literal)
+
+# A file with a space in its name:
+ls "my file.txt"          # works
+ls my file.txt            # tries to ls TWO files: "my" and "file.txt"
+\end{lstlisting}
+
+\subsection*{Parameter expansion}
+
+The single most useful family of bash features. \texttt{\$\{VAR\}}
+extends to a rich mini-language:
+
+\begin{lstlisting}[style=bashstyle]
+name="users.csv"
+
+${name:-default.csv}       # 'users.csv' if set, else 'default.csv'
+${UNSET:-default.csv}      # 'default.csv'
+
+${name#*.}                  # 'csv'       -- strip shortest prefix matching *.
+${name%.*}                  # 'users'     -- strip shortest suffix matching .*
+${name##*.}                 # 'csv'       -- strip longest prefix matching *.
+${name%%.*}                 # 'users'     -- strip longest suffix matching .*
+
+filepath="/home/shiru/data/users.csv"
+${filepath##*/}             # 'users.csv' -- basename
+${filepath%/*}              # '/home/shiru/data' -- dirname
+
+s="HELLO"
+${s,,}                      # 'hello' -- lowercase (bash 4+)
+${s^^}                      # 'HELLO' -- uppercase
+
+arr=(a b c d e)
+${arr[@]}                   # all elements
+${#arr[@]}                  # 5 -- number of elements
+${arr[2]}                   # 'c'
+${arr[@]:1:2}               # 'b c' -- slice from index 1, length 2
+\end{lstlisting}
+
+\subsection*{Command substitution}
+
+\begin{lstlisting}[style=bashstyle]
+today=$(date +%F)           # '2026-05-25'
+echo "Backup file: backup-$today.tar.gz"
+
+# Nested:
+size=$(du -sh "$(pwd)" | cut -f1)
+echo "This directory is $size"
+
+# Arithmetic:
+n=$((2 + 3 * 4))            # 14
+echo $n
+i=$((i + 1))                # increment
+
+# Backticks `cmd` also work but are deprecated -- use $(cmd).
+\end{lstlisting}
+
+\subsection*{Arrays}
+
+\begin{lstlisting}[style=bashstyle]
+fruits=(apple banana cherry)
+fruits+=(date)              # append
+
+echo ${fruits[0]}            # apple
+echo ${fruits[@]}            # apple banana cherry date
+
+# Iterate (note the quoting!):
+for f in "${fruits[@]}"; do
+    echo "got: $f"
+done
+
+# Read a file into an array, one line per element:
+mapfile -t lines < users.csv
+echo ${#lines[@]}            # number of lines
+echo ${lines[0]}             # first line
+\end{lstlisting}
+
+\begin{comparepy}
+Bash arrays are like Python lists, but indexing is via
+\texttt{\$\{arr[i]\}} (not \texttt{arr[i]}), length is
+\texttt{\$\{\#arr[@]\}} (not \texttt{len(arr)}), and -- crucially
+-- you must quote \texttt{"\$\{arr[@]\}"} when expanding, or
+elements with spaces split into multiple arguments. Bash also has
+\emph{associative arrays} (\texttt{declare -A}), which are like
+Python dicts, but you'll reach for \texttt{jq} or Python long
+before you need them.
+\end{comparepy}
+
+\clearpage
+% =========================================================
+\section{The Essential Text Toolkit}
+\label{sec:texttoolkit}
+
+The five tools that turn bash into a data engineer's playground:
+\cmd{grep}, \cmd{sed}, \cmd{awk}, \cmd{sort}, \cmd{uniq}. Learn
+them in this order, in roughly this depth.
+
+\subsection*{\texttt{grep} -- find lines}
+
+\begin{lstlisting}[style=bashstyle]
+grep ERROR app.log             # lines containing ERROR
+grep -i error app.log          # case-insensitive
+grep -v INFO app.log           # invert: lines NOT containing INFO
+grep -c ERROR app.log          # count matching lines
+grep -l ERROR *.log            # list FILENAMES with matches
+grep -n ERROR app.log          # prefix each match with its line number
+grep -r ERROR ~/projects        # recurse through a directory tree
+grep -E '^(ERR|WARN)' app.log  # extended regex (alternation needs -E)
+grep -A 3 -B 1 ERROR app.log   # 3 lines After, 1 line Before each match
+\end{lstlisting}
+
+\subsection*{\texttt{sed} -- search and replace, line by line}
+
+\begin{lstlisting}[style=bashstyle]
+sed 's/old/new/' file.txt              # replace first occurrence per line
+sed 's/old/new/g' file.txt             # global: every occurrence
+sed -i 's/old/new/g' file.txt          # in-place edit (-i)
+sed -i.bak 's/old/new/g' file.txt      # in-place, but keep file.txt.bak
+
+# Print only lines 10-20:
+sed -n '10,20p' file.txt
+
+# Delete lines matching a pattern:
+sed '/^DEBUG/d' app.log
+
+# Replace using regex backreferences:
+sed -E 's/^([A-Z]+)-([0-9]+)$/\2,\1/' tickets.txt
+\end{lstlisting}
+
+\begin{gotcha}
+\texttt{sed -i} on macOS requires \texttt{sed -i ''} (empty string).
+On Linux/WSL2 you use \texttt{sed -i} alone, or \texttt{sed -i.bak}
+to keep a backup. If a script needs to run on both, use \texttt{gsed}
+or just shell out to Python.
+\end{gotcha}
+
+\subsection*{\texttt{awk} -- the data engineer's secret weapon}
+
+\texttt{awk} treats each line as a record split into fields. The
+default field separator is whitespace; \texttt{-F,} sets it to a
+comma.
+
+\begin{lstlisting}[style=bashstyle]
+# Print the first column of every line:
+awk '{print $1}' users.csv
+
+# Filter rows where the 3rd CSV column > 100:
+awk -F, '$3 > 100 {print $1, $3}' data.csv
+
+# Sum the 2nd column:
+awk -F, '{sum += $2} END {print sum}' sales.csv
+
+# Average:
+awk -F, 'NR>1 {sum += $3; n++} END {print sum/n}' users.csv
+# NR is the current row number; NR>1 skips the header.
+
+# Group by + count -- "how many rows per role?":
+awk -F, 'NR>1 {n[$3]++} END {for (r in n) print r, n[r]}' users.csv
+\end{lstlisting}
+
+\subsection*{\texttt{sort} and \texttt{uniq}}
+
+\begin{lstlisting}[style=bashstyle]
+sort file.txt                  # alphabetic sort
+sort -n file.txt               # numeric sort
+sort -r file.txt               # reverse
+sort -k 2 -n -r file.txt       # sort by 2nd column, numerically, descending
+sort -t, -k 3 -n -r data.csv   # CSV: -t, sets the separator
+
+uniq file.txt                  # collapse adjacent duplicates
+sort file.txt | uniq           # the canonical "unique values" idiom
+sort file.txt | uniq -c        # count each unique value
+sort file.txt | uniq -c | sort -nr  # top values by count
+\end{lstlisting}
+
+\subsection*{Worked example: top 5 IPs in an access log}
+
+\begin{lstlisting}[style=bashstyle]
+# access.log line format:
+# 192.168.1.5 - - [25/May/2026:11:00:01] "GET /api/users HTTP/1.1" 200 1234
+
+awk '{print $1}' access.log |   # extract the IP (1st column)
+    sort |                       # sort so identical IPs are adjacent
+    uniq -c |                    # count each unique IP
+    sort -nr |                   # sort by count descending
+    head -5                      # take the top 5
+\end{lstlisting}
+
+That's a complete data pipeline in five lines, with no Python, no
+dependencies, no parsing libraries -- and it runs in milliseconds
+on a million-line log.
+
+\subsection*{Other tools worth knowing}
+
+\begin{lstlisting}[style=bashstyle]
+head -n 20 file.txt            # first 20 lines (default 10)
+tail -n 20 file.txt            # last 20 lines
+tail -f app.log                # live-follow a log file (Ctrl+C to stop)
+cut -d, -f1,3 data.csv         # columns 1 and 3 from a CSV
+tr ',' '\t' < data.csv         # translate characters (CSV -> TSV)
+wc -l file.txt                 # count lines
+wc -c file.txt                 # count bytes
+xargs                          # turn stdin into command-line arguments
+\end{lstlisting}
+
+\clearpage
+% =========================================================
+\part*{Part III --- Data Wrangling}
+\addcontentsline{toc}{section}{Part III --- Data Wrangling}
+% =========================================================
+
+\section{CSV and TSV with \texttt{awk}, \texttt{miller}, and \texttt{csvkit}}
+
+\texttt{awk} from the previous section is enough for simple
+column-oriented work. For headers-aware CSV processing (the kind
+where you want to say "the \texttt{score} column," not "column 4"),
+two specialized tools step in.
+
+\subsection*{\texttt{miller} (\texttt{mlr}) -- structured CSV processing}
+
+\begin{lstlisting}[style=bashstyle]
+sudo apt install -y miller     # one-time install
+\end{lstlisting}
+
+Given \texttt{users.csv}:
+
+\begin{lstlisting}[style=bashstyle]
+user_id,name,role,active,score
+1,Alice,Data Engineer,true,0.91
+2,Bob,ML Engineer,true,0.87
+3,Carol,Analyst,false,0.62
+4,Dan,Data Engineer,true,0.78
+\end{lstlisting}
+
+A few mlr one-liners:
+
+\begin{lstlisting}[style=bashstyle]
+# Pretty-print the file as a table:
+mlr --c2p cat users.csv
+# Reads CSV (--c2p = CSV -> pretty)
+
+# Filter rows:
+mlr --csv filter '$active == "true" && $score >= 0.8' users.csv
+
+# Project columns:
+mlr --csv cut -f name,role,score users.csv
+
+# Sort:
+mlr --csv sort -nr score users.csv
+
+# Group-by aggregate -- average score per role:
+mlr --csv stats1 -a mean,count -f score -g role users.csv
+
+# Multi-step pipeline:
+mlr --csv \
+    filter '$active == "true"' then \
+    sort -nr score then \
+    cut -f name,role,score \
+    users.csv
+\end{lstlisting}
+
+\subsection*{\texttt{csvkit} -- SQL-on-CSV}
+
+\begin{lstlisting}[style=bashstyle]
+uv tool install csvkit          # if you have uv (recommended)
+# or:  pip install --user csvkit
+\end{lstlisting}
+
+\texttt{csvkit} is a suite of Python-based CSV tools:
+
+\begin{lstlisting}[style=bashstyle]
+csvlook users.csv                              # pretty-print
+csvcut -c name,score users.csv                  # project columns by name
+csvgrep -c role -m "Data Engineer" users.csv    # filter rows
+csvstat users.csv                               # describe each column
+csvsql --query "SELECT role, AVG(score) FROM users GROUP BY role" users.csv
+\end{lstlisting}
+
+\texttt{csvsql} is killer for ad-hoc analysis: full SQLite SQL, run
+against any CSV, no schema definition needed.
+
+\subsection*{When to drop into Python}
+
+Use bash CSV tools for: file inspection, quick filtering, ad-hoc
+counts, format conversion. Use \texttt{pandas} for: joins, merges,
+time-series operations, anything vectorized, anything where you'd
+hate to write the equivalent in shell.
+
+\begin{comparepy}
+\texttt{mlr --csv filter '\$score > 0.8' then sort -nr score} is the
+shell analog of \pcmd{df[df.score > 0.8].sort\_values('score',
+ascending=False)}. Both are header-aware, both are fast for medium
+data. \texttt{mlr} keeps you in the shell pipeline so you can pipe
+to \texttt{curl}, \texttt{jq}, etc. \texttt{pandas} wins as soon as
+you need joins or numeric heavy lifting.
+\end{comparepy}
+
+% =========================================================
+\section{JSON with \texttt{jq}}
+\label{sec:jq}
+
+\texttt{jq} is to JSON what \texttt{awk} is to text: small,
+composable, ubiquitous. Every modern API speaks JSON; every modern
+config file is JSON or YAML. \texttt{jq} is how you read and
+transform them from the shell.
+
+\subsection*{Selectors}
+
+Given \texttt{user.json}:
+
+\begin{lstlisting}[style=bashstyle]
+{
+  "id": 42,
+  "name": "shiru",
+  "roles": ["DE", "MLE"],
+  "scores": {"q1": 0.91, "q2": 0.88}
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=bashstyle]
+jq '.' user.json                 # pretty-print
+jq '.name' user.json             # "shiru"
+jq -r '.name' user.json          # shiru   (-r = raw, unquoted strings)
+jq '.roles' user.json            # ["DE","MLE"]
+jq '.roles[0]' user.json         # "DE"
+jq '.roles[]' user.json          # "DE"\n"MLE"  (emits each as separate value)
+jq '.scores.q1' user.json        # 0.91
+\end{lstlisting}
+
+\subsection*{Filtering arrays}
+
+Given \texttt{users.json} -- an array of objects:
+
+\begin{lstlisting}[style=bashstyle]
+[
+  {"name": "Alice", "role": "DE",  "score": 0.91},
+  {"name": "Bob",   "role": "MLE", "score": 0.87},
+  {"name": "Carol", "role": "DA",  "score": 0.62}
+]
+\end{lstlisting}
+
+\begin{lstlisting}[style=bashstyle]
+# Names of users with score > 0.8:
+jq '.[] | select(.score > 0.8) | .name' users.json
+# "Alice"
+# "Bob"
+
+# Project to a smaller shape:
+jq '.[] | {name, role}' users.json
+
+# Group by role -- the "GROUP BY" idiom:
+jq 'group_by(.role) | map({role: .[0].role, n: length, avg: (map(.score) | add/length)})' users.json
+\end{lstlisting}
+
+\subsection*{The canonical idiom: \texttt{curl | jq}}
+
+\begin{lstlisting}[style=bashstyle]
+# Get the title of every open issue in a public repo:
+curl -s https://api.github.com/repos/python/cpython/issues?state=open |
+    jq -r '.[] | "#\(.number) \(.title)"'
+\end{lstlisting}
+
+\subsection*{Writing JSON back}
+
+\begin{lstlisting}[style=bashstyle]
+# Modify a field and write back:
+jq '.name = "shiru-new"' user.json > user.tmp.json && mv user.tmp.json user.json
+
+# Build a JSON object from shell variables:
+jq -n --arg name "$USER" --argjson n 42 '{user: $name, count: $n}'
+# {"user":"shiru","count":42}
+\end{lstlisting}
+
+\begin{compareps}
+\texttt{jq} is the shell-native equivalent of PowerShell's
+\pscmd{ConvertFrom-Json} / \pscmd{ConvertTo-Json} -- with one big
+upgrade: it has no \texttt{-Depth} footgun. \texttt{jq} preserves
+arbitrary nesting by default. The trade-off is that \texttt{jq}'s
+filter language is its own DSL, with a learning curve.
+\end{compareps}
+
+% =========================================================
+\section{HTTP and APIs with \texttt{curl}}
+
+\texttt{curl} is the swiss-army HTTP client. It's installed
+everywhere, supports every protocol you'll need, and pipes
+straight into \texttt{jq}.
+
+\subsection*{Basic GET}
+
+\begin{lstlisting}[style=bashstyle]
+curl https://api.github.com/repos/python/cpython | jq '.stargazers_count'
+# 65000
+
+# -s = silent (no progress bar), -L = follow redirects:
+curl -sL https://example.com/data.json | jq '.'
+\end{lstlisting}
+
+\subsection*{Headers, auth, and POST bodies}
+
+\begin{lstlisting}[style=bashstyle]
+# Bearer token from an environment variable:
+curl -s \
+    -H "Authorization: Bearer $GITHUB_TOKEN" \
+    -H "Accept: application/vnd.github+json" \
+    https://api.github.com/repos/python/cpython/pulls?state=open |
+    jq -r '.[] | "#\(.number) \(.title)"'
+
+# POST with a JSON body:
+curl -s \
+    -H "Content-Type: application/json" \
+    -d '{"name":"shiru","role":"DE"}' \
+    https://httpbin.org/post | jq .
+
+# POST with a body from a file:
+curl -s -H "Content-Type: application/json" -d @body.json https://api.example.com/items
+
+# Save the response to a file:
+curl -sL https://example.com/big.csv -o big.csv
+
+# Useful debugging flags:
+curl -v ...        # verbose: show request/response headers
+curl -i ...        # include response headers in output
+curl -w '%{http_code}\n' -o /dev/null -s ...  # print only the status code
+\end{lstlisting}
+
+\subsection*{A paginated-API example}
+
+\begin{lstlisting}[style=bashstyle]
+all=$(mktemp)
+page=1
+while :; do
+    chunk=$(curl -s -H "Authorization: Bearer $API_TOKEN" \
+        "https://api.example.com/items?page=$page&per_page=100")
+    n=$(echo "$chunk" | jq 'length')
+    [[ "$n" -eq 0 ]] && break
+    echo "$chunk" | jq '.[]' >> "$all"
+    page=$((page + 1))
+done
+
+jq -s '.' "$all" > all_items.json     # -s = "slurp" into a single array
+rm "$all"
+\end{lstlisting}
+
+\begin{comparepy}
+This is the shell version of the \pcmd{requests.get(\dots,
+params=\{...\}).json()} pattern, with \pcmd{jq} replacing manual
+JSON traversal. For high-throughput ingestion you'd reach for
+Python's \texttt{httpx} or \texttt{aiohttp}; for ad-hoc API
+exploration, \texttt{curl + jq} is hard to beat.
+\end{comparepy}
+
+\clearpage
+% =========================================================
+\part*{Part IV --- Environment and Python}
+\addcontentsline{toc}{section}{Part IV --- Environment and Python}
+% =========================================================
+
+\section{Environment Variables, \texttt{.bashrc}, and \texttt{dotenv}}
+
+\subsection*{Setting variables for the current shell}
+
+\begin{lstlisting}[style=bashstyle]
+AWS_PROFILE=production         # for THIS process only (not children)
+export AWS_PROFILE=production  # for this process AND every child it spawns
+
+echo $AWS_PROFILE              # production
+printenv AWS_PROFILE           # also production
+env | grep AWS                 # every AWS_* in this shell
+\end{lstlisting}
+
+\begin{gotcha}
+Without \texttt{export}, child processes (like the Python script you
+just ran) cannot see the variable. As a rule: \textbf{always
+\texttt{export}} for anything a tool needs to read from the
+environment.
+\end{gotcha}
+
+\subsection*{Persisting variables: \texttt{.bashrc}}
+
+The file \texttt{\textasciitilde{}/.bashrc} runs every time you
+open an interactive shell. Add \texttt{export} lines there:
+
+\begin{lstlisting}[style=bashstyle]
+# Edit with your favorite editor:
+nano ~/.bashrc        # or vim, or `code ~/.bashrc`
+
+# Add at the bottom:
+export AWS_DEFAULT_REGION=us-east-1
+export EDITOR=nano
+export PATH="$HOME/.local/bin:$PATH"
+
+# Apply WITHOUT reopening the shell:
+source ~/.bashrc
+\end{lstlisting}
+
+\begin{gotcha}
+\texttt{.bashrc} runs for \emph{interactive} shells.
+\texttt{.bash\_profile} (or \texttt{.profile}) runs for \emph{login}
+shells. On Ubuntu WSL2, you usually only need \texttt{.bashrc}, and
+the default \texttt{.profile} already sources it. If your
+\texttt{export}s aren't taking effect in a new shell, check both
+files.
+\end{gotcha}
+
+\subsection*{The \texttt{.env} pattern -- credentials without leaks}
+
+The standard pattern: store secrets in a per-project \texttt{.env}
+file, \texttt{gitignore} it, and load it on demand.
+
+A file \texttt{\textasciitilde{}/projects/etl/.env}:
+
+\begin{lstlisting}[style=bashstyle]
+AWS_ACCESS_KEY_ID=AKIA...
+AWS_SECRET_ACCESS_KEY=...
+AWS_DEFAULT_REGION=us-east-1
+MONGO_URI=mongodb+srv://user:pass@cluster.example.net/
+MYSQL_HOST=db.internal
+MYSQL_USER=shiru
+MYSQL_PASSWORD=...
+\end{lstlisting}
+
+Load it into the current shell:
+
+\begin{lstlisting}[style=bashstyle]
+set -a               # automatically export every variable assignment that follows
+source .env          # run the file (each FOO=bar becomes an export)
+set +a               # turn auto-export back off
+\end{lstlisting}
+
+Now \texttt{aws}, \texttt{mongosh}, \texttt{mysql}, and any Python
+script you launch will see those credentials. Add \texttt{.env} to
+\texttt{.gitignore} and you'll never accidentally commit secrets.
+
+\subsection*{Inspecting and modifying \texttt{PATH}}
+
+\begin{lstlisting}[style=bashstyle]
+echo "$PATH"                       # one long colon-separated string
+echo "$PATH" | tr ':' '\n'         # one entry per line, readable
+
+# Add a directory to the front of PATH (so it wins over system tools):
+export PATH="$HOME/.local/bin:$PATH"
+
+# Remove a duplicate manually -- it's just string editing.
+\end{lstlisting}
+
+% =========================================================
+\section{Python on Ubuntu}
+
+There are three Pythons you'll encounter on Ubuntu:
+
+\begin{enumerate}[leftmargin=*]
+\item \textbf{System Python} (\texttt{python3}, installed by the OS,
+used by apt, dpkg, and many system services). \textbf{Do not \texttt{pip
+install} into it.} Breaking it can break Ubuntu itself.
+\item \textbf{\texttt{pyenv}-managed Pythons} -- a tool that installs
+multiple Python versions side-by-side in your home directory. Useful
+if you need, say, 3.10 for one project and 3.12 for another.
+\item \textbf{\texttt{uv}-managed Pythons} -- the modern path. \texttt{uv}
+downloads the exact Python version each project requests, no
+\texttt{pyenv} needed.
+\end{enumerate}
+
+The recommended setup for a new WSL2 install: \textbf{install
+\texttt{uv}, skip \texttt{pyenv}.}
+
+\subsection*{Installing \texttt{uv}}
+
+\begin{lstlisting}[style=bashstyle]
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Add uv to PATH if the installer prompts you (it usually edits ~/.bashrc):
+source ~/.bashrc
+
+uv --version
+# uv 0.x.y
+\end{lstlisting}
+
+\subsection*{Letting \texttt{uv} manage Python}
+
+\begin{lstlisting}[style=bashstyle]
+uv python install 3.12         # download and install Python 3.12
+uv python list                  # show every Python uv knows about
+uv python pin 3.12              # set the version for THIS project (writes .python-version)
+\end{lstlisting}
+
+\subsection*{Running a script with no venv ceremony}
+
+\begin{lstlisting}[style=bashstyle]
+# Run a script that has inline dependency metadata (PEP 723):
+uv run --with pandas,boto3 python -c "import pandas; print(pandas.__version__)"
+\end{lstlisting}
+
+For more substantial work, you'll use a project + venv -- next
+section.
+
+% =========================================================
+\section{Virtual Environments with \texttt{uv} and \texttt{venv}}
+
+\subsection*{The classic way -- \texttt{python -m venv}}
+
+\begin{lstlisting}[style=bashstyle]
+cd ~/projects/my-app
+python3 -m venv .venv             # create
+source .venv/bin/activate         # activate (prompt now shows (.venv))
+python -m pip install -U pip
+python -m pip install pandas boto3 pymongo mysql-connector-python
+# work, work, work...
+deactivate                         # leave the venv
+\end{lstlisting}
+
+\begin{compareps}
+On PowerShell you'd run \pscmd{.\textbackslash{}.venv\textbackslash{}Scripts\textbackslash{}Activate.ps1}
+-- and the first time, you'd hit the execution-policy wall and
+have to run \pscmd{Set-ExecutionPolicy} once. On Linux there is no
+execution-policy: just \texttt{source .venv/bin/activate} and you
+are in.
+\end{compareps}
+
+\subsection*{The modern way -- \texttt{uv}}
+
+\begin{lstlisting}[style=bashstyle]
+cd ~/projects
+uv init churn-model             # scaffolds pyproject.toml + .venv + .python-version + uv.lock
+cd churn-model
+
+uv add pandas boto3 pymongo "mysql-connector-python>=8.3"
+uv add --dev pytest ruff
+
+# Run a Python script in the project venv -- no manual activation needed:
+uv run python -m churn_model.train --input data/users.csv
+
+# One-off commands:
+uv run pytest
+uv run ruff check .
+
+# Make the venv match uv.lock exactly (use this on CI / fresh clones):
+uv sync
+\end{lstlisting}
+
+\subsection*{When to activate vs use \texttt{uv run}}
+
+\begin{itemize}[leftmargin=*]
+\item \textbf{Interactive work, REPLs, debugging:} \texttt{source
+.venv/bin/activate} once, then \texttt{python}, \texttt{ipython},
+\texttt{pytest} feel native.
+\item \textbf{Scripts, CI, one-off commands:} \texttt{uv run \dots}
+each time. No activation, no risk of forgetting to deactivate.
+\end{itemize}
+
+\subsection*{Legacy: \texttt{requirements.txt}}
+
+\begin{lstlisting}[style=bashstyle]
+uv venv                                              # create .venv
+uv pip install -r requirements.txt                   # install (fast pip-compatible)
+uv pip compile requirements.in -o requirements.txt   # resolve & pin
+uv pip sync requirements.txt                         # make .venv match EXACTLY
+\end{lstlisting}
+
+\clearpage
+% =========================================================
+\part*{Part V --- The Data \& ML Ecosystem}
+\addcontentsline{toc}{section}{Part V --- The Data \& ML Ecosystem}
+% =========================================================
+
+\section{Docker on WSL2}
+\label{sec:docker}
+
+Docker on WSL2 is the easiest Linux Docker setup that exists. Two
+paths to install it:
+
+\subsection*{Path A: Docker Desktop with the WSL2 backend (recommended)}
+
+\textbf{Install steps (one-time):}
+
+\begin{enumerate}[leftmargin=*]
+\item Download Docker Desktop for Windows from
+\texttt{https://www.docker.com/products/docker-desktop/}.
+\item Run the installer; check \emph{Use WSL 2 instead of Hyper-V}
+when offered.
+\item Start Docker Desktop. In Settings $\to$ Resources $\to$ WSL
+Integration, enable integration with your Ubuntu distro.
+\end{enumerate}
+
+After this, \texttt{docker} is available inside Ubuntu and there's
+no separate Linux Docker daemon to manage. Docker Desktop is free
+for individuals and small businesses; check the license if
+you're on a larger team.
+
+\subsection*{Path B: Rootless Docker inside Ubuntu}
+
+If you'd rather have no Windows-side service, install Docker's
+\texttt{rootless} variant entirely inside WSL2. The official one-liner
+is at \texttt{https://docs.docker.com/engine/security/rootless/}. The
+trade-offs: a slightly less seamless experience (you start the
+daemon manually), but full isolation from Windows.
+
+\subsection*{Daily commands}
+
+\begin{lstlisting}[style=bashstyle]
+docker --version
+docker ps                          # running containers
+docker ps -a                       # all containers (including stopped)
+docker images                      # local images
+docker pull postgres:16            # download an image
+docker run --rm -it ubuntu:24.04 bash   # interactive shell in a fresh container
+                                    # --rm = remove on exit
+                                    # -it = interactive + TTY
+
+# Background ("detached") with a port mapping and a name:
+docker run -d --name pg \
+    -e POSTGRES_PASSWORD=secret \
+    -p 5432:5432 \
+    postgres:16
+
+docker logs pg                     # see its stdout
+docker exec -it pg psql -U postgres # run psql inside the container
+docker stop pg && docker rm pg     # tear down
+\end{lstlisting}
+
+\subsection*{\texttt{docker compose} for multi-container setups}
+
+A file \texttt{docker-compose.yml}:
+
+\begin{lstlisting}[style=bashstyle]
+services:
+  pg:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+
+volumes:
+  pgdata:
+\end{lstlisting}
+
+\begin{lstlisting}[style=bashstyle]
+docker compose up -d        # start everything in background
+docker compose ps           # show status
+docker compose logs -f pg   # follow pg logs
+docker compose down         # stop and remove
+docker compose down -v      # also drop the named volumes
+\end{lstlisting}
+
+\subsection*{Volumes and bind mounts}
+
+\begin{lstlisting}[style=bashstyle]
+# Mount your current working directory at /app inside the container:
+docker run --rm -v "$PWD":/app -w /app python:3.12 python script.py
+# -v HOST:CONTAINER  -- bind mount
+# -w /app            -- working directory inside the container
+\end{lstlisting}
+
+\subsection*{Building your own image}
+
+A \texttt{Dockerfile}:
+
+\begin{lstlisting}[style=bashstyle]
+FROM python:3.12-slim
+
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+RUN pip install uv && uv sync --frozen --no-dev
+COPY . .
+CMD ["uv", "run", "python", "-m", "myapp"]
+\end{lstlisting}
+
+\begin{lstlisting}[style=bashstyle]
+docker build -t myapp:dev .
+docker run --rm -p 8000:8000 myapp:dev
+\end{lstlisting}
+
+% =========================================================
+\section{CUDA / GPU Passthrough for ML}
+
+WSL2 supports NVIDIA GPU passthrough out of the box, which means
+your PyTorch and TensorFlow installs inside Ubuntu can use your
+Windows GPU for training. The single most important rule: \textbf{do
+not install a Linux NVIDIA driver inside Ubuntu.} The GPU is
+shared from Windows; the only driver that should exist is the
+Windows one.
+
+\subsection*{Setup checklist}
+
+\begin{enumerate}[leftmargin=*]
+\item Install the latest NVIDIA \textbf{Windows} driver from
+\texttt{https://www.nvidia.com/Download/index.aspx}. As of 2026,
+any driver $\geq$ 535 supports WSL2 CUDA.
+\item Inside WSL2 Ubuntu, confirm the GPU is visible:
+\begin{lstlisting}[style=bashstyle]
+nvidia-smi
+# +-----------------------------------+
+# | NVIDIA-SMI 545.29 ...             |
+# | GPU  Name        ...  Memory ...  |
+# | 0    NVIDIA RTX  ...   8192MiB    |
+# +-----------------------------------+
+\end{lstlisting}
+\item Install PyTorch with CUDA inside your project's venv:
+\begin{lstlisting}[style=bashstyle]
+cd ~/projects/my-model
+uv add torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# (Pick the cu1XX matching your CUDA toolkit; cu121 = CUDA 12.1, current at time of writing.)
+\end{lstlisting}
+\item Sanity-check inside Python:
+\begin{lstlisting}[style=pystyle]
+import torch
+print(torch.cuda.is_available())   # True
+print(torch.cuda.device_count())   # 1
+print(torch.cuda.get_device_name(0))
+\end{lstlisting}
+\end{enumerate}
+
+\subsection*{Tuning WSL2 memory}
+
+By default, WSL2 takes up to 50\% of your Windows RAM. For ML work
+you usually want more (or less, if you're hitting Windows OOM).
+Create \texttt{C:\textbackslash{}Users\textbackslash{}shiru\textbackslash{}.wslconfig}
+(on Windows, not inside WSL):
+
+\begin{lstlisting}[style=bashstyle]
+[wsl2]
+memory=24GB
+processors=8
+swap=8GB
+\end{lstlisting}
+
+Then \texttt{wsl --shutdown} from PowerShell to make it take effect.
+
+\begin{gotcha}
+\texttt{nvidia-smi} working but \texttt{torch.cuda.is\_available()}
+returning \texttt{False} usually means you installed the
+\emph{CPU} build of PyTorch. Reinstall with the explicit
+\texttt{--index-url} for the right CUDA version.
+\end{gotcha}
+
+% =========================================================
+\section{AWS, MongoDB, and MySQL Clients in 30 Lines}
+
+\subsection*{AWS CLI v2}
+
+\begin{lstlisting}[style=bashstyle]
+curl -sL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
+unzip awscliv2.zip
+sudo ./aws/install
+rm -rf aws awscliv2.zip
+
+aws --version
+# aws-cli/2.x.x ...
+
+# Configure interactively (writes ~/.aws/credentials and ~/.aws/config):
+aws configure
+
+# Or use env vars (set in .env, then `set -a; source .env; set +a`):
+aws s3 ls s3://my-bucket/
+aws s3 cp data.csv s3://my-bucket/raw/data.csv
+aws s3 sync ./local-dir s3://my-bucket/dir/
+\end{lstlisting}
+
+\subsection*{MongoDB shell}
+
+\begin{lstlisting}[style=bashstyle]
+# Install mongosh from MongoDB's apt repo (one-time):
+curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb.gpg
+echo "deb [signed-by=/usr/share/keyrings/mongodb.gpg] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+sudo apt update && sudo apt install -y mongodb-mongosh
+
+# Connect:
+mongosh "$MONGO_URI"
+
+# Or, run a one-off query and exit:
+mongosh "$MONGO_URI" --eval 'db.users.countDocuments({active: true})'
+\end{lstlisting}
+
+\subsection*{MySQL client}
+
+\begin{lstlisting}[style=bashstyle]
+sudo apt install -y mysql-client
+
+mysql -h "$MYSQL_HOST" -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" mydb
+# (Note: -p PASSWORD with no space; or just -p to be prompted.)
+
+# Run a one-off query:
+mysql -h "$MYSQL_HOST" -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" -e "SELECT COUNT(*) FROM users" mydb
+
+# Dump and restore:
+mysqldump -h "$MYSQL_HOST" -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" mydb > mydb.sql
+mysql    -h "$MYSQL_HOST" -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" mydb < mydb.sql
+\end{lstlisting}
+
+\clearpage
+% =========================================================
+\part*{Part VI --- Scripting and a Real ETL}
+\addcontentsline{toc}{section}{Part VI --- Scripting and a Real ETL}
+% =========================================================
+
+\section{Bash Scripting Basics}
+\label{sec:scripting}
+
+A \emph{script} is just a text file of bash commands with a shebang
+line and the execute bit set:
+
+\begin{lstlisting}[style=bashstyle]
+#!/usr/bin/env bash
+echo "hello, $1"
+\end{lstlisting}
+
+\begin{lstlisting}[style=bashstyle]
+chmod +x hello.sh
+./hello.sh shiru
+# hello, shiru
+\end{lstlisting}
+
+\subsection*{The discipline four: \texttt{set -euo pipefail}}
+
+Put this at the top of every non-trivial bash script:
+
+\begin{lstlisting}[style=bashstyle]
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Optional during debugging:
+# set -x   # echo every command before running it
+\end{lstlisting}
+
+What each flag does:
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Flag} & \textbf{Effect} \\
+\midrule
+\texttt{-e}             & Exit immediately on any failed command \\
+\texttt{-u}             & Treat unset variables as an error (catches typos) \\
+\texttt{-o pipefail}    & A pipeline fails if ANY command in it fails (not just the last) \\
+\texttt{-x}             & Print each command before running -- only for debugging \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Without these, bash's defaults are alarmingly permissive: a missing
+variable becomes an empty string (so \texttt{rm -rf "\$DIR/"} becomes
+\texttt{rm -rf /} if \texttt{\$DIR} is unset), and a failed pipe stage
+is silently ignored.
+
+\subsection*{Functions, arguments, return codes}
+
+\begin{lstlisting}[style=bashstyle]
+#!/usr/bin/env bash
+set -euo pipefail
+
+log() {
+    local msg="$1"
+    printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$msg" >&2
+}
+
+ensure_dir() {
+    local d="$1"
+    if [[ ! -d "$d" ]]; then
+        mkdir -p "$d"
+        log "created $d"
+    fi
+}
+
+log "starting"
+ensure_dir /tmp/work
+log "done"
+\end{lstlisting}
+
+\subsection*{Conditionals: \texttt{[[ ... ]]}}
+
+\begin{lstlisting}[style=bashstyle]
+if [[ -f users.csv ]]; then
+    echo "file exists"
+fi
+
+if [[ -z "$VAR" ]]; then
+    echo "VAR is empty or unset"
+elif [[ "$VAR" == "prod" ]]; then
+    echo "production mode"
+else
+    echo "VAR = $VAR"
+fi
+
+# Common tests:
+# -f file    -- file exists
+# -d dir     -- directory exists
+# -z str     -- string is empty
+# -n str     -- string is non-empty
+# str1 == str2  -- equality (string)
+# str1 =~ regex -- regex match
+# n -eq m, -lt, -gt -- numeric comparisons
+# cond1 && cond2, cond1 || cond2 -- combine
+\end{lstlisting}
+
+\begin{gotcha}
+The older single-bracket form \texttt{[ ... ]} (a POSIX-portable
+test) works but has more quoting pitfalls. In bash scripts,
+\textbf{always use \texttt{[[ ... ]]}} -- it's safer and supports
+\texttt{=\textasciitilde{}} (regex) and \texttt{\&\&}/\texttt{||}
+inside.
+\end{gotcha}
+
+\subsection*{Loops}
+
+\begin{lstlisting}[style=bashstyle]
+# Over files (preferred -- handles spaces correctly):
+for f in *.csv; do
+    echo "processing $f"
+done
+
+# Over an explicit list:
+for env in dev stage prod; do
+    deploy "$env"
+done
+
+# Over lines of a file (the safe form -- no word-splitting bugs):
+while IFS= read -r line; do
+    echo "got: $line"
+done < input.txt
+
+# C-style counted loop:
+for ((i=0; i<10; i++)); do
+    echo "$i"
+done
+\end{lstlisting}
+
+\subsection*{\texttt{trap} for cleanup}
+
+\begin{lstlisting}[style=bashstyle]
+#!/usr/bin/env bash
+set -euo pipefail
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT      # ALWAYS run on script exit, success or failure
+
+# ... work in $tmpdir ...
+\end{lstlisting}
+
+\subsection*{Parsing CLI arguments}
+
+\begin{lstlisting}[style=bashstyle]
+#!/usr/bin/env bash
+set -euo pipefail
+
+input=""
+output=""
+verbose=false
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -i|--input)   input="$2";  shift 2 ;;
+        -o|--output)  output="$2"; shift 2 ;;
+        -v|--verbose) verbose=true; shift ;;
+        -h|--help)    echo "usage: $0 -i INPUT -o OUTPUT"; exit 0 ;;
+        *)            echo "unknown arg: $1" >&2; exit 2 ;;
+    esac
+done
+
+[[ -z "$input"  ]] && { echo "missing --input"  >&2; exit 2; }
+[[ -z "$output" ]] && { echo "missing --output" >&2; exit 2; }
+
+echo "input=$input output=$output verbose=$verbose"
+\end{lstlisting}
+
+% =========================================================
+\section{Putting It Together --- A Mini ETL Walkthrough}
+
+Goal: read a CSV of users, enrich each row by hitting a REST API,
+run a Python transformation in a \texttt{uv}-managed venv to compute
+a per-user score, write the result as JSON, and log progress to a
+daily log file.
+
+\subsection*{Project layout}
+
+\begin{lstlisting}[style=bashstyle]
+~/projects/enrich/
+    pyproject.toml          # managed by uv
+    uv.lock
+    .venv/                   # created by `uv venv`
+    .env                     # secrets (gitignored)
+    data/
+        users.csv            # input
+    enrich.sh                # orchestrator (bash)
+    score.py                 # transformation (Python)
+    logs/
+        enrich-2026-05-25.log
+\end{lstlisting}
+
+\subsection*{The Python transformation (\texttt{score.py})}
+
+\begin{lstlisting}[style=pystyle]
+"""Read JSON lines from stdin; emit scored JSON lines on stdout."""
+import json, sys
+
+for line in sys.stdin:
+    rec = json.loads(line)
+    base = float(rec.get("score", 0))
+    boost = 0.1 if rec.get("verified") else 0.0
+    rec["final_score"] = round(base + boost, 4)
+    sys.stdout.write(json.dumps(rec) + "\n")
+\end{lstlisting}
+
+\subsection*{The orchestrator (\texttt{enrich.sh})}
+
+\begin{lstlisting}[style=bashstyle]
+#!/usr/bin/env bash
+set -euo pipefail
+
+INPUT="${INPUT:-data/users.csv}"
+OUTPUT="${OUTPUT:-data/users_scored.json}"
+
+# Load .env if present (export every variable in it):
+if [[ -f .env ]]; then
+    set -a; source .env; set +a
+fi
+
+# Set up daily log file:
+mkdir -p logs
+LOG="logs/enrich-$(date +%F).log"
+
+log() {
+    printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "$LOG"
+}
+
+log "Reading $INPUT"
+n_users=$(($(wc -l < "$INPUT") - 1))   # subtract header
+log "Enriching $n_users users via API"
+
+# Convert CSV rows to JSON, hit the API for each user_id, merge response in,
+# then pipe everything to score.py via uv run, and write a JSON array out.
+tmp=$(mktemp)
+trap 'rm -f "$tmp"' EXIT
+
+mlr --c2j cat "$INPUT" | jq -c '.[]' | while read -r row; do
+    user_id=$(jq -r '.user_id' <<< "$row")
+    profile=$(curl -fsS \
+        -H "Authorization: Bearer $API_TOKEN" \
+        "https://api.example.com/users/$user_id" || echo '{}')
+    jq -c --argjson p "$profile" '. + {verified: ($p.verified // false)}' <<< "$row"
+done > "$tmp"
+
+log "Scoring $(wc -l < "$tmp") records via Python (uv run)"
+uv run python score.py < "$tmp" | jq -s '.' > "$OUTPUT"
+
+log "Wrote $(jq 'length' "$OUTPUT") records to $OUTPUT"
+log "Done"
+\end{lstlisting}
+
+\subsection*{Run it}
+
+\begin{lstlisting}[style=bashstyle]
+chmod +x enrich.sh
+./enrich.sh
+# or with overrides:
+INPUT=data/sample.csv OUTPUT=/tmp/out.json ./enrich.sh
+\end{lstlisting}
+
+What this script demonstrates, in one place:
+
+\begin{itemize}[leftmargin=*]
+\item \texttt{set -euo pipefail} discipline.
+\item Environment defaults with parameter expansion
+(\texttt{\$\{INPUT:-data/users.csv\}}).
+\item \texttt{.env}-based secrets loading.
+\item Per-day log file with a small \texttt{log()} helper.
+\item Conversion between CSV and JSON with \texttt{mlr --c2j} and \texttt{jq}.
+\item API enrichment with \texttt{curl} (and \texttt{-fsS} -- fail
+on errors, silent progress, but show real errors).
+\item Hand-off to Python via \texttt{uv run python score.py},
+streaming JSON lines through stdin/stdout.
+\item Cleanup via \texttt{trap '...' EXIT}.
+\end{itemize}
+
+\clearpage
+% =========================================================
+\part*{Part VII --- Reference}
+\addcontentsline{toc}{section}{Part VII --- Reference}
+% =========================================================
+
+\section{Common Pitfalls}
+
+The list of bash footguns every newcomer hits exactly once. Read it
+once, recognize them next time.
+
+\textbf{\texttt{FOO = bar} (spaces) is not assignment.} Bash parses
+it as "run the command \texttt{FOO} with arguments \texttt{=} and
+\texttt{bar}." Always \texttt{FOO=bar}, no spaces.
+
+\textbf{Word-splitting unquoted variables.} \texttt{rm \$file}
+breaks if \texttt{\$file} contains spaces or expands to a glob.
+Always \texttt{rm "\$file"} unless you specifically want splitting.
+
+\textbf{\texttt{cd \$(dirname "\$0")} vs \texttt{cd "\$(dirname
+"\$0")"}.} Without the outer quotes, a script in a path with
+spaces breaks. Always wrap the substitution in quotes too.
+
+\textbf{Line endings.} If you edit a script on Windows in a tool
+that writes \texttt{\textbackslash{}r\textbackslash{}n}, the shebang
+becomes \texttt{\#!/usr/bin/env bash\textbackslash{}r} and you'll
+see "no such file or directory" when you run it. Use VS Code's
+WSL-side editor, or \texttt{dos2unix script.sh}.
+
+\textbf{\texttt{/mnt/c/} is slow.} Keep code under
+\texttt{\textasciitilde{}/}. Anything that touches many files (git,
+pip, npm) is dramatically faster on the Linux filesystem.
+
+\textbf{\texttt{apt install} for Python packages.} Don't. Use
+\texttt{uv add} or \texttt{pip install} inside a venv. Touching
+system Python with \texttt{sudo pip} can break Ubuntu.
+
+\textbf{\texttt{sudo} and \texttt{PATH}.} \texttt{sudo} resets
+\texttt{PATH} to a minimal set, so \texttt{sudo my-tool} may fail
+with "command not found" even though \texttt{my-tool} is on your
+\texttt{PATH}. Use the absolute path:
+\texttt{sudo /home/shiru/.local/bin/my-tool}.
+
+\textbf{Editing \texttt{.bashrc} and forgetting to \texttt{source}.}
+Your changes don't take effect until you start a new shell or run
+\texttt{source \textasciitilde{}/.bashrc}.
+
+\textbf{\texttt{rm -rf \$VAR/}.} If \texttt{\$VAR} is unset or empty,
+this is \texttt{rm -rf /}. The \texttt{set -u} flag prevents the
+unset case; quoting (\texttt{"\$VAR/"}) doesn't help. The safest
+form is to check first: \texttt{[[ -n "\$VAR" \&\& -d "\$VAR" ]]
+\&\& rm -rf "\$VAR"}.
+
+\textbf{Pipes hide failures.} \texttt{cmd1 | cmd2} only reports
+\texttt{cmd2}'s exit code. Use \texttt{set -o pipefail} so a failing
+\texttt{cmd1} fails the pipe.
+
+\textbf{Single vs double quotes inside \texttt{jq} expressions.}
+Use single quotes around the whole \texttt{jq} program so bash
+doesn't expand \texttt{\$.field} -- inside the program, \texttt{.field}
+is the jq syntax, not a shell variable.
+
+\textbf{\texttt{nvidia-smi} works but PyTorch can't see the GPU.}
+You installed the CPU build. Reinstall PyTorch with the
+\texttt{--index-url} matching your CUDA version
+(Section~\ref{sec:docker}'s neighbor).
+
+% =========================================================
+\section{Quick Reference Card}
+
+The three-column lookup: a concept you know from Python, the bash
+command, and -- if you read the PowerShell tutorial -- the
+equivalent there.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{p{0.32\linewidth} p{0.32\linewidth} p{0.28\linewidth}}
+\toprule
+\textbf{Python / Concept} & \textbf{Bash} & \textbf{PowerShell} \\
+\midrule
+\pcmd{os.getcwd()}                  & \cmd{pwd}                          & \pscmd{Get-Location} \\
+\pcmd{os.chdir('/p')}               & \cmd{cd /p}                        & \pscmd{Set-Location} \\
+\pcmd{os.listdir()}                 & \cmd{ls}                           & \pscmd{Get-ChildItem} \\
+\pcmd{os.listdir} (with hidden)     & \cmd{ls -la}                       & \pscmd{Get-ChildItem -Force} \\
+\pcmd{glob.glob('**/*.csv')}        & \cmd{ls **/*.csv} (\texttt{globstar}) & \pscmd{Get-ChildItem -Recurse -Filter *.csv} \\
+\pcmd{open(p).read()}               & \cmd{cat p}                        & \pscmd{Get-Content p} \\
+\pcmd{open(p).readlines()[:10]}     & \cmd{head -n 10 p}                 & \pscmd{Get-Content p -TotalCount 10} \\
+\pcmd{collections.deque(open(p),10)}& \cmd{tail -n 10 p}                 & \pscmd{Get-Content p -Tail 10} \\
+\pcmd{tail -f}                      & \cmd{tail -f p}                    & \pscmd{Get-Content p -Wait -Tail 0} \\
+\pcmd{len(open(p).readlines())}     & \cmd{wc -l p}                      & \texttt{(\pscmd{Get-Content} p | \pscmd{Measure-Object} -Line).Lines} \\
+\pcmd{re.findall(pat, text)}        & \cmd{grep -E pat p}                & \pscmd{Select-String} \\
+\pcmd{shutil.which('python')}       & \cmd{which python}                 & \texttt{(\pscmd{Get-Command} python).Source} \\
+\pcmd{os.makedirs(p)}               & \cmd{mkdir -p p}                   & \pscmd{New-Item -ItemType Directory -Force p} \\
+\pcmd{open(p,'w').close()}          & \cmd{touch p}                      & \pscmd{New-Item -ItemType File p} \\
+\pcmd{shutil.copy(s,d)}             & \cmd{cp s d}                       & \pscmd{Copy-Item s d} \\
+\pcmd{shutil.copytree(s,d)}         & \cmd{cp -r s d}                    & \pscmd{Copy-Item -Recurse s d} \\
+\pcmd{shutil.move(s,d)}             & \cmd{mv s d}                       & \pscmd{Move-Item s d} \\
+\pcmd{os.remove(p)}                 & \cmd{rm p}                         & \pscmd{Remove-Item p} \\
+\pcmd{shutil.rmtree(p)}             & \cmd{rm -rf p}                     & \pscmd{Remove-Item -Recurse -Force p} \\
+\pcmd{os.symlink(t,l)}              & \cmd{ln -s t l}                    & \pscmd{New-Item -ItemType SymbolicLink ...} \\
+\pcmd{os.environ['V']}              & \cmd{\$V} or \cmd{\$\{V\}}         & \pscmd{\$env:V} \\
+\pcmd{os.environ['V'] = 'x'}        & \cmd{export V=x}                   & \pscmd{\$env:V = 'x'} \\
+\pcmd{json.load(open(p))}           & \cmd{jq . p}                       & \pscmd{Get-Content p | ConvertFrom-Json} \\
+\pcmd{csv.DictReader(open(p))}      & \cmd{mlr --csv cat p}              & \pscmd{Import-Csv p} \\
+\pcmd{requests.get(u).json()}       & \cmd{curl -s u | jq .}             & \pscmd{Invoke-RestMethod u} \\
+\pcmd{requests.post(u, json=b)}     & \cmd{curl -d @b.json -H Content-Type:application/json u} & \pscmd{Invoke-RestMethod -Method Post -Body \$b} \\
+\pcmd{subprocess.run([...])}        & \cmd{cmd \$arg1 \$arg2}            & (run cmdlet directly) \\
+\pcmd{cmd1 \&\& cmd2}               & \cmd{cmd1 \&\& cmd2}               & \cmd{cmd1 \&\& cmd2} (PS 7+) \\
+\pcmd{a = subprocess.check\_output(c)}& \cmd{a=\$(c)}                    & \pscmd{\$a = (c)} \\
+\pcmd{logging suppression}          & \cmd{cmd 2>/dev/null}              & \texttt{cmd 2>\$null} \\
+\pcmd{for x in iter:}               & \cmd{for x in ...; do ... done}    & \pscmd{foreach (\$x in ...) \{ ... \}} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{1em}
+\noindent
+\textbf{Last advice.} When you're stuck, the answer almost always
+starts with one of three commands: \cmd{man cmd} (the manual page),
+\cmd{cmd --help} (the short help), or \cmd{type cmd} (is it a
+built-in, an alias, or a binary on \texttt{PATH}?). Bash rewards a
+small set of well-learned tools over a large set of half-known
+ones -- pick five from this tutorial (\texttt{grep}, \texttt{awk},
+\texttt{jq}, \texttt{curl}, \texttt{uv}) and use them every day for
+two weeks. You'll be fluent.
+
+\end{document}
