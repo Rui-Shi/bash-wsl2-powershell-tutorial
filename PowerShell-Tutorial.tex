@@ -1,0 +1,1398 @@
+\documentclass[11pt,a4paper]{article}
+
+% ==========  Packages  ==========
+\usepackage[margin=1in]{geometry}
+\usepackage{setspace}
+\usepackage{parskip}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{tcolorbox}
+\usepackage[colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black,citecolor=blue!60!black]{hyperref}
+
+\setstretch{1.15}
+
+% ==========  Colors  ==========
+\definecolor{pwshBg}{HTML}{F4F6FA}
+\definecolor{pwshKw}{HTML}{0050A0}
+\definecolor{pwshStr}{HTML}{8B2C00}
+\definecolor{pwshCom}{HTML}{4F7F4F}
+\definecolor{pwshVar}{HTML}{7B2D8E}
+
+\definecolor{bashBg}{HTML}{F8F1E4}
+\definecolor{bashKw}{HTML}{8B2C00}
+\definecolor{bashStr}{HTML}{4F7F4F}
+\definecolor{bashCom}{HTML}{888888}
+
+% ==========  PowerShell language for listings  ==========
+\lstdefinelanguage{PowerShell}{
+  morekeywords={if,else,elseif,foreach,for,while,do,switch,return,function,filter,break,continue,
+    param,try,catch,finally,throw,begin,process,end,in,not,and,or,
+    Get-ChildItem,Set-Location,Get-Location,Get-Content,Set-Content,Add-Content,Out-File,
+    Where-Object,Select-Object,ForEach-Object,Sort-Object,Group-Object,Measure-Object,
+    Import-Csv,Export-Csv,ConvertFrom-Csv,ConvertTo-Csv,ConvertFrom-Json,ConvertTo-Json,
+    Invoke-RestMethod,Invoke-WebRequest,Get-Command,Get-Help,Get-Member,Get-Alias,
+    New-Item,Remove-Item,Copy-Item,Move-Item,Test-Path,Rename-Item,Resolve-Path,
+    Get-Process,Start-Process,Stop-Process,Write-Host,Write-Output,Write-Error,Write-Warning,
+    Read-Host,Out-Null,Out-String,Out-GridView,Format-Table,Format-List,
+    Set-ExecutionPolicy,Get-ExecutionPolicy,Get-Item,Get-Date,Get-Random,
+    New-Object,Select-String,Start-Sleep,Tee-Object},
+  sensitive=false,
+  morecomment=[l]{\#},
+  morestring=[b]",
+  morestring=[b]'
+}
+
+% ==========  Listing styles  ==========
+\lstdefinestyle{pwshstyle}{
+  language=PowerShell,
+  backgroundcolor=\color{pwshBg},
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{pwshKw}\bfseries,
+  stringstyle=\color{pwshStr},
+  commentstyle=\color{pwshCom}\itshape,
+  showstringspaces=false,
+  breaklines=true,
+  breakatwhitespace=true,
+  frame=single,
+  framesep=4pt,
+  rulecolor=\color{pwshKw!30},
+  xleftmargin=8pt,
+  xrightmargin=4pt,
+  aboveskip=8pt,
+  belowskip=8pt,
+  columns=fullflexible,
+  keepspaces=true
+}
+
+\lstdefinestyle{bashstyle}{
+  language=bash,
+  backgroundcolor=\color{bashBg},
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{bashKw}\bfseries,
+  stringstyle=\color{bashStr},
+  commentstyle=\color{bashCom}\itshape,
+  showstringspaces=false,
+  breaklines=true,
+  breakatwhitespace=true,
+  frame=single,
+  framesep=4pt,
+  rulecolor=\color{bashKw!30},
+  xleftmargin=8pt,
+  xrightmargin=4pt,
+  aboveskip=8pt,
+  belowskip=8pt,
+  columns=fullflexible,
+  keepspaces=true
+}
+
+\lstset{style=pwshstyle}
+
+% ==========  Macros  ==========
+\newcommand{\cmd}[1]{\texttt{\textcolor{pwshKw}{#1}}}
+\newcommand{\bcmd}[1]{\texttt{\textcolor{bashKw}{#1}}}
+
+% A "compare with what you know" callout box
+\newtcolorbox{compare}[1][]{
+  colback=yellow!8,
+  colframe=yellow!50!orange,
+  fonttitle=\bfseries,
+  title=Compare with what you know,
+  sharp corners,
+  boxrule=0.4pt,
+  left=8pt,right=8pt,top=4pt,bottom=4pt,
+  #1
+}
+
+\newtcolorbox{gotcha}[1][]{
+  colback=red!5,
+  colframe=red!50,
+  fonttitle=\bfseries,
+  title=Gotcha,
+  sharp corners,
+  boxrule=0.4pt,
+  left=8pt,right=8pt,top=4pt,bottom=4pt,
+  #1
+}
+
+% ==========  Title  ==========
+\title{\bfseries PowerShell for the Data \& ML Engineer\\
+\large A practical tutorial for Python / cron / AWS / Mongo / MySQL users\\moving onto Windows}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+This tutorial teaches the PowerShell you actually need as a data engineer or
+machine-learning engineer on Windows: navigating the filesystem, transforming
+data with the object pipeline, parsing CSV and JSON, calling REST APIs,
+managing environment variables for AWS / MongoDB / MySQL credentials, and
+running Python with \texttt{venv} and \texttt{uv}. Each concept is introduced
+through a worked example, with a side-by-side comparison to the bash or
+Python equivalent you already know. PowerShell 7+ is assumed throughout
+(the cross-platform \texttt{pwsh}); 5.1-only quirks are flagged when they
+matter.
+\end{abstract}
+
+\tableofcontents
+\clearpage
+
+% =========================================================
+\section{What PowerShell Is (and Isn't)}
+% =========================================================
+
+The single most important thing to internalize before you write any
+PowerShell: \textbf{PowerShell pipes objects, not text.}
+
+In bash, every command emits a stream of bytes, and the next command in the
+pipeline parses those bytes back into a structure. If you want the size of
+every file over 1\,MB, you run \bcmd{ls -l}, then \bcmd{awk} to chop columns,
+then \bcmd{sort -n}, and a typo in the column index silently breaks
+everything. In PowerShell, \cmd{Get-ChildItem} returns real
+\texttt{FileInfo} objects with properties like \texttt{Length}, \texttt{Name},
+\texttt{LastWriteTime}, and the next stage of the pipeline filters and
+sorts by those properties directly. There is no parsing step, and no
+formatting choices to break.
+
+\begin{lstlisting}[style=pwshstyle]
+# All files over 1 MB in the current directory, biggest first.
+Get-ChildItem |
+    Where-Object Length -gt 1MB |
+    Sort-Object Length -Descending |
+    Select-Object Name, Length
+\end{lstlisting}
+
+\begin{lstlisting}[style=bashstyle]
+# Roughly the same in bash -- and notice how much
+# more fragile the column parsing is.
+ls -la | awk '$5 > 1048576 {print $9, $5}' | sort -k2 -nr
+\end{lstlisting}
+
+\subsection*{The Verb-Noun convention}
+
+Every cmdlet (PowerShell's word for a command) is named
+\texttt{Verb-Noun}: \cmd{Get-ChildItem}, \cmd{Set-Location},
+\cmd{New-Item}, \cmd{Remove-Item}, \cmd{Import-Csv},
+\cmd{Invoke-RestMethod}. The verbs come from a small, deliberate
+vocabulary (\texttt{Get}, \texttt{Set}, \texttt{New}, \texttt{Remove},
+\texttt{Add}, \texttt{Test}, \texttt{Invoke}, \texttt{Out},
+\texttt{ConvertTo}, \texttt{ConvertFrom}, \dots). Once you know roughly
+what you want to do, you can often guess the cmdlet name.
+
+\subsection*{Cmdlets, aliases, and discovery}
+
+Most Unix command names work in PowerShell as \emph{aliases} for
+real cmdlets. \texttt{ls} is an alias for \cmd{Get-ChildItem};
+\texttt{cd} is an alias for \cmd{Set-Location}; \texttt{cat} is
+\cmd{Get-Content}; \texttt{rm} is \cmd{Remove-Item}. Aliases are
+fine in the interactive shell, but \textbf{use the full cmdlet name
+in scripts} so the script is portable and self-documenting.
+
+Three cmdlets you will use constantly to learn the rest:
+
+\begin{lstlisting}[style=pwshstyle]
+Get-Command *csv*           # find every cmdlet whose name contains "csv"
+Get-Help Import-Csv -Full   # the full help page (parameters, examples)
+Get-Item .\data.csv | Get-Member   # list every property and method of an object
+\end{lstlisting}
+
+\cmd{Get-Member} is the secret weapon: \emph{pipe anything to it} and
+PowerShell tells you exactly which properties and methods that object
+exposes. This is how you discover, for example, that the result of
+\cmd{Invoke-RestMethod} on a JSON endpoint is already a real object with
+dot-accessible properties.
+
+\begin{compare}
+In Python, you call \texttt{dir(obj)} or \texttt{help(obj)} to explore an
+object's interface. \cmd{Get-Member} is the same idea, with the bonus
+that it works inline at the end of a pipeline.
+\end{compare}
+
+% =========================================================
+\section{Getting Around: Files and Directories}
+% =========================================================
+
+The cmdlets in this section replace the daily-driver Unix commands.
+They all accept paths with spaces if you quote them, and they all
+take \texttt{-Recurse} and \texttt{-Force} flags where you would
+expect.
+
+\begin{lstlisting}[style=pwshstyle]
+Get-Location                                # pwd
+Set-Location C:\Users\shiru\Desktop         # cd
+Get-ChildItem                                # ls
+Get-ChildItem -Recurse -Filter *.parquet    # find . -name "*.parquet"
+Get-ChildItem -Force                         # ls -a (include hidden files)
+
+New-Item -ItemType Directory data\raw       # mkdir data\raw
+New-Item -ItemType Directory -Force a\b\c   # mkdir -p a\b\c
+New-Item -ItemType File notes.txt           # touch notes.txt
+
+Copy-Item .\data.csv .\backup\data.csv
+Copy-Item -Recurse .\src .\src_backup       # cp -r
+Move-Item .\old_name.csv .\new_name.csv     # mv (also rename)
+Remove-Item .\tmp.csv                       # rm
+Remove-Item -Recurse -Force .\.venv         # rm -rf
+
+Test-Path .\data.csv                         # [ -e data.csv ]; returns $true/$false
+Resolve-Path .\data.csv                      # absolute path
+\end{lstlisting}
+
+\subsection*{Paths and quoting}
+
+PowerShell paths use backslash on Windows (\texttt{C:\textbackslash{}Users\textbackslash{}shiru\textbackslash{}data.csv})
+but forward slash works too. Surround paths containing spaces with
+double quotes:
+
+\begin{lstlisting}[style=pwshstyle]
+Get-Content "C:\Users\shiru\My Documents\notes.txt"
+\end{lstlisting}
+
+The backtick (\texttt{`}) is the escape character (\emph{not} backslash),
+and the dollar sign (\texttt{\$}) is special inside double quotes (it
+interpolates). Inside single quotes, nothing is special:
+
+\begin{lstlisting}[style=pwshstyle]
+Write-Output "Today is $env:USERNAME"     # interpolates -> "Today is shiru"
+Write-Output 'Today is $env:USERNAME'     # literal      -> "Today is $env:USERNAME"
+Write-Output "Price is `$5"               # backtick-escape -> "Price is $5"
+\end{lstlisting}
+
+\subsection*{Safety: -WhatIf and -Confirm}
+
+Every destructive cmdlet (\cmd{Remove-Item}, \cmd{Stop-Process},
+\cmd{Set-Content} on an existing file, \dots) accepts
+\texttt{-WhatIf} to \emph{print what would happen without doing it},
+and \texttt{-Confirm} to prompt before each action. Get in the habit
+of running anything you're not sure about with \texttt{-WhatIf} first:
+
+\begin{lstlisting}[style=pwshstyle]
+Remove-Item -Recurse -Force .\.venv -WhatIf
+# What if: Performing the operation "Remove Directory" on target ".venv".
+\end{lstlisting}
+
+\begin{compare}
+Unix has nothing equivalent. The closest is running a \texttt{find}
+command before a \texttt{find -delete} to inspect the matches. With
+\texttt{-WhatIf} every destructive cmdlet has dry-run built in.
+\end{compare}
+
+% =========================================================
+\section{The Object Pipeline}
+% =========================================================
+
+This is the section that pays for the whole tutorial. If you only learn
+five PowerShell cmdlets, learn these:
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+Cmdlet & What it does \\
+\midrule
+\cmd{Where-Object}    & filter (\texttt{WHERE}, \texttt{df.query}, \texttt{filter()})  \\
+\cmd{Select-Object}   & project columns / take N (\texttt{SELECT}, \texttt{df[[...]]}) \\
+\cmd{ForEach-Object}  & map / transform each item (\texttt{map}, \texttt{apply}) \\
+\cmd{Sort-Object}     & sort by a property (\texttt{ORDER BY}, \texttt{df.sort\_values}) \\
+\cmd{Group-Object}    & group by a key (\texttt{GROUP BY}, \texttt{df.groupby}) \\
+\cmd{Measure-Object}  & count / sum / avg / min / max (\texttt{aggregate}) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The objects flow left-to-right; the variable \texttt{\$\_} refers to
+the current object inside a \texttt{\{ ... \}} script block.
+
+\subsection*{Worked example: log file analysis}
+
+Suppose you have a directory of \texttt{*.log} files and want to know
+which file has the most lines mentioning \texttt{ERROR}.
+
+\begin{lstlisting}[style=pwshstyle]
+Get-ChildItem -Filter *.log |
+    ForEach-Object {
+        [PSCustomObject]@{
+            File   = $_.Name
+            Errors = (Select-String -Path $_.FullName -Pattern 'ERROR').Count
+        }
+    } |
+    Sort-Object Errors -Descending |
+    Select-Object -First 5
+\end{lstlisting}
+
+This is the entire pipeline, end to end: enumerate files, build a small
+object per file with \texttt{File} and \texttt{Errors} properties, sort
+by error count, take the top 5.
+
+\subsection*{Block form vs.\ property form}
+
+\cmd{Where-Object} has two syntaxes. They do the same thing; the
+\emph{property form} is shorter and works for simple comparisons.
+
+\begin{lstlisting}[style=pwshstyle]
+# Property form (simple comparison).
+Get-ChildItem | Where-Object Length -gt 1MB
+
+# Block form (any expression).
+Get-ChildItem | Where-Object { $_.Length -gt 1MB -and $_.Name -like '*.csv' }
+\end{lstlisting}
+
+Operators are spelled out (not symbolic) because \texttt{<} and \texttt{>}
+are reserved for redirection. The full set you'll use:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{p{0.18\linewidth} p{0.74\linewidth}}
+\toprule
+\textbf{Operator} & \textbf{Meaning} \\
+\midrule
+\texttt{-eq}, \texttt{-ne}            & equal, not equal \\
+\texttt{-lt}, \texttt{-le}            & less than, less or equal \\
+\texttt{-gt}, \texttt{-ge}            & greater than, greater or equal \\
+\texttt{-like}                        & wildcard match (\texttt{*}, \texttt{?}) -- case insensitive \\
+\texttt{-clike}                       & wildcard, case sensitive (prefix \texttt{c} on any op makes it case-sensitive) \\
+\texttt{-match}                       & regex match (populates \texttt{\$Matches}) \\
+\texttt{-notmatch}                    & negated regex \\
+\texttt{-in}, \texttt{-notin}          & membership: \texttt{\$x -in @(1,2,3)} \\
+\texttt{-contains}, \texttt{-notcontains} & reverse membership: collection \texttt{-contains \$x} \\
+\texttt{-and}, \texttt{-or}, \texttt{-not}, \texttt{-xor} & boolean combinators \\
+\texttt{-is}, \texttt{-isnot}          & type check: \texttt{\$x -is [string]} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+These operators broadcast naturally over collections, so
+\texttt{@(1,2,3,4,5) -gt 2} returns \texttt{@(3,4,5)} -- the same
+trick lets you do quick set filters without an explicit
+\cmd{Where-Object} call.
+
+\subsection*{Group, count, summarize}
+
+Counting events by category is one line:
+
+\begin{lstlisting}[style=pwshstyle]
+# How many files per extension in this directory tree?
+Get-ChildItem -Recurse -File |
+    Group-Object Extension |
+    Sort-Object Count -Descending |
+    Select-Object Count, Name
+\end{lstlisting}
+
+\cmd{Measure-Object} does numeric aggregation:
+
+\begin{lstlisting}[style=pwshstyle]
+Get-ChildItem -Recurse -File |
+    Measure-Object Length -Sum -Average -Maximum
+# Count : 1842
+# Average : 28734.21
+# Sum     : 52928711
+# Maximum : 14523904
+\end{lstlisting}
+
+\subsection*{Parallel execution (PowerShell 7+)}
+
+\cmd{ForEach-Object} accepts a \texttt{-Parallel} switch in
+PowerShell 7+ that runs the script block on multiple threads -- ideal
+for I/O-bound work like hitting hundreds of API endpoints or reading
+many files at once.
+
+\begin{lstlisting}[style=pwshstyle]
+# Fetch metadata for 100 URLs in parallel, 10 at a time.
+$urls = Get-Content .\urls.txt
+$urls | ForEach-Object -Parallel {
+    $r = Invoke-RestMethod -Uri $_
+    [PSCustomObject]@{ url = $_; status = $r.status }
+} -ThrottleLimit 10 |
+    Export-Csv -NoTypeInformation -Path .\statuses.csv -Encoding utf8
+\end{lstlisting}
+
+Two things to know:
+
+\begin{itemize}[leftmargin=*]
+\item Inside \texttt{-Parallel}, the variable \texttt{\$\_} still
+refers to the current item, but \emph{outside-scope variables are
+not visible} -- pass them in with \texttt{\$using:varname}.
+\item Order is not preserved. Use it for embarrassingly parallel
+work; for sequential ETL where each step depends on the previous,
+stick with plain \cmd{ForEach-Object}.
+\end{itemize}
+
+\begin{compare}
+The PowerShell pipeline is so close to a pandas method chain that the
+mapping is almost mechanical:
+\[
+\texttt{df[df.size > 1e6].sort\_values('size', ascending=False).head(5)}
+\]
+becomes
+\[
+\cmd{Get-ChildItem}\;|\;\cmd{Where-Object}\;\texttt{Length -gt 1MB}\;|\;\cmd{Sort-Object}\;\texttt{Length -Descending}\;|\;\cmd{Select-Object}\;\texttt{-First 5}.
+\]
+\end{compare}
+
+% =========================================================
+\section{Variables and Data Types}
+% =========================================================
+
+\subsection*{Variables}
+
+Variable names start with \texttt{\$}. Assignment uses \texttt{=}; types
+are inferred but you can cast.
+
+\begin{lstlisting}[style=pwshstyle]
+$name = 'shiru'
+$count = 42
+$ratio = 0.95
+$today = Get-Date
+
+# Casting:
+$n = [int]"7"           # 7
+$x = [double]"3.14"     # 3.14
+$d = [datetime]"2026-01-15"
+\end{lstlisting}
+
+PowerShell variables are not scoped to a block by default (unlike
+Python's function-scoped locals); they live in the enclosing scope.
+For scripts, this is rarely an issue, but be aware of it when you
+write loops.
+
+\subsection*{Arrays}
+
+The \texttt{@(...)} syntax builds an array; you can also build one
+implicitly by listing items separated by commas. Indexing is
+zero-based and uses square brackets, exactly like Python.
+
+\begin{lstlisting}[style=pwshstyle]
+$nums = @(1, 2, 3, 4, 5)
+$nums[0]        # 1
+$nums[-1]       # 5  (negative indexing works)
+$nums[1..3]     # 2, 3, 4  (range slicing)
+$nums.Length    # 5
+$nums += 6      # append (creates a NEW array; arrays are immutable)
+
+# Iterate:
+foreach ($n in $nums) { Write-Output ($n * 2) }
+
+# Or use the pipeline:
+$nums | ForEach-Object { $_ * 2 }
+\end{lstlisting}
+
+\begin{gotcha}
+The \texttt{+=} on arrays is \emph{not} cheap. It creates a brand-new
+array each time. For large collections, build a
+\texttt{[System.Collections.Generic.List[object]]} instead, or
+use the pipeline to emit items.
+\end{gotcha}
+
+\subsection*{Hashtables (dicts)}
+
+Hashtables are PowerShell's dictionary type.
+
+\begin{lstlisting}[style=pwshstyle]
+$user = @{
+    name = 'shiru'
+    role = 'Data Engineer'
+    languages = @('Python', 'SQL', 'PowerShell')
+}
+
+$user.name              # 'shiru'
+$user['role']           # 'Data Engineer' (both syntaxes work)
+$user.email = 'shirui7352136@gmail.com'   # add a key
+$user.ContainsKey('name')                  # $true
+$user.Keys
+$user.Values
+\end{lstlisting}
+
+\begin{compare}
+Python dict literal \texttt{\{"name": "shiru", "role": "DE"\}} is
+PowerShell's \texttt{@\{name='shiru'; role='DE'\}}. Note the
+semicolons (or newlines) between entries -- not commas.
+\end{compare}
+
+\subsection*{Custom objects}
+
+Cmdlets in a pipeline want objects, not bare hashtables. Promote a
+hashtable to an object with \texttt{[PSCustomObject]}:
+
+\begin{lstlisting}[style=pwshstyle]
+$row = [PSCustomObject]@{
+    user_id = 42
+    score   = 0.91
+    label   = 'churn'
+}
+$row | Get-Member        # see the properties
+$row | Export-Csv -NoTypeInformation -Path .\out.csv
+\end{lstlisting}
+
+This is how you build CSV-shaped data on the fly and pipe it into the
+data-wrangling cmdlets you'll meet in Section~\ref{sec:csv}.
+
+\subsection*{Booleans and \$null}
+
+\texttt{\$true}, \texttt{\$false}, and \texttt{\$null} are the three
+constants you need. The comparison operators short-circuit (\texttt{-and},
+\texttt{-or}, \texttt{-not}). Anything zero-length, zero-valued, or
+\texttt{\$null} is falsy in conditions:
+
+\begin{lstlisting}[style=pwshstyle]
+if ($name) { Write-Output "got a name" }
+if ($null -eq $row.email) { Write-Output "email is missing" }
+\end{lstlisting}
+
+% =========================================================
+\section{Strings and Formatting}
+% =========================================================
+
+PowerShell strings come in four useful forms. Pick the right one to
+avoid the most common Windows footgun (mangled escapes).
+
+\begin{lstlisting}[style=pwshstyle]
+$name = 'shiru'
+
+"Hello $name"              # double-quoted: variables interpolate
+'Hello $name'              # single-quoted: literal, no interpolation
+"Sum: $($a + $b)"          # subexpression form for complex inserts
+"Path: $env:USERPROFILE"   # env: drive interpolates too
+
+# Here-strings preserve newlines and ignore most quoting issues:
+$body = @"
+{
+    "user": "$name",
+    "count": 42
+}
+"@                          # closing "@ MUST be at column 0
+
+# Single-quoted here-string -- literal, no interpolation, ideal for
+# regex patterns or JSON templates with literal $ in them:
+$pattern = @'
+^\$[0-9]+\.[0-9]{2}$
+'@
+\end{lstlisting}
+
+\begin{gotcha}
+Inside a here-string, the closing \texttt{"@} or \texttt{'@} must be
+at the start of the line, with no leading whitespace. Indenting it
+is a parse error.
+\end{gotcha}
+
+\subsection*{Formatting numbers and dates}
+
+The \texttt{-f} operator is the printf-style formatter. It uses .NET
+format specifiers.
+
+\begin{lstlisting}[style=pwshstyle]
+"{0:N2}"   -f 1234.5678              # "1,234.57"  (2-decimal, with separators)
+"{0:P1}"   -f 0.952                  # "95.2 %"     (percent)
+"{0:F4}"   -f (1/3)                  # "0.3333"     (fixed-point)
+"{0:yyyy-MM-dd}" -f (Get-Date)       # "2026-05-25"
+"{0,-10} {1,5}" -f 'shiru', 42       # "shiru          42"  (padded columns)
+\end{lstlisting}
+
+\subsection*{Regex on strings}
+
+\begin{lstlisting}[style=pwshstyle]
+'AWS-prod-eu-west-1' -match '^AWS-(prod|stage)-([a-z0-9-]+)$'
+# $true -- and the captures land in $Matches:
+$Matches[1]   # 'prod'
+$Matches[2]   # 'eu-west-1'
+
+'foo,bar,baz' -split ','                # @('foo','bar','baz')
+'foo bar baz' -replace '\s+', '_'       # 'foo_bar_baz'
+
+# Multiline regex on a file:
+Select-String -Path .\app.log -Pattern '^\d{4}-\d{2}-\d{2}.*ERROR' |
+    Select-Object LineNumber, Line
+\end{lstlisting}
+
+\begin{compare}
+\texttt{-replace} is regex by default. To do a literal replacement,
+use the \texttt{.Replace()} string method:
+\texttt{'a.b.c'.Replace('.', '/')}.
+\end{compare}
+
+% =========================================================
+\section{File I/O -- Plain Text}
+% =========================================================
+
+\cmd{Get-Content} reads, \cmd{Set-Content} writes (overwrite),
+\cmd{Add-Content} appends.
+
+\begin{lstlisting}[style=pwshstyle]
+# Read whole file into a single string vs. array of lines.
+$lines = Get-Content .\app.log               # array, one element per line
+$blob  = Get-Content .\app.log -Raw          # single string with embedded newlines
+
+# Write / overwrite a file.
+Set-Content -Path .\notes.txt -Value "First line"
+Set-Content -Path .\notes.txt -Value @('First', 'Second', 'Third')   # array -> multi-line
+
+# Append.
+Add-Content -Path .\notes.txt -Value "Another line"
+
+# Stream a large file line-by-line without loading it all into memory.
+Get-Content .\huge.log -ReadCount 0 | ForEach-Object {
+    if ($_ -match 'ERROR') { $_ }
+}
+\end{lstlisting}
+
+\subsection*{Encoding}
+
+The single most common Windows footgun: \cmd{Set-Content} and
+\cmd{Out-File} write UTF-8 \emph{with BOM} by default in PowerShell 5.1
+and UTF-8 \emph{without BOM} in PowerShell 7+. If you're writing data
+that will be read by a non-Windows tool (Python's
+\texttt{open(\dots, encoding='utf-8')}, AWS S3, jq), be explicit:
+
+\begin{lstlisting}[style=pwshstyle]
+Set-Content -Path .\out.txt -Value $text -Encoding utf8       # UTF-8 without BOM on PS7
+Set-Content -Path .\out.txt -Value $text -Encoding utf8NoBOM  # explicit, PS7 only
+Set-Content -Path .\out.txt -Value $text -Encoding ascii      # ASCII
+\end{lstlisting}
+
+\begin{gotcha}
+\cmd{Out-File} has different default encoding from \cmd{Set-Content}
+historically. In any code that crosses tool boundaries, \textbf{always
+pass \texttt{-Encoding utf8}} explicitly.
+\end{gotcha}
+
+% =========================================================
+\section{Data Wrangling -- CSV}
+\label{sec:csv}
+% =========================================================
+
+This is where PowerShell starts to feel genuinely good for data work.
+\cmd{Import-Csv} reads a CSV and yields \textbf{one object per row},
+with column names as properties. No manual splitting, no quoting bugs,
+no off-by-one indexing.
+
+Example file \texttt{users.csv}:
+\begin{lstlisting}[style=pwshstyle,language=]
+user_id,name,role,active,score
+1,Alice,Data Engineer,true,0.91
+2,Bob,ML Engineer,true,0.87
+3,Carol,Analyst,false,0.62
+4,Dan,Data Engineer,true,0.78
+\end{lstlisting}
+
+\subsection*{Read, filter, project, write}
+
+\begin{lstlisting}[style=pwshstyle]
+$users = Import-Csv .\users.csv
+
+# Filter rows where active is "true" and score >= 0.8.
+$top = $users |
+    Where-Object { $_.active -eq 'true' -and [double]$_.score -ge 0.8 } |
+    Select-Object name, role, score
+
+$top | Format-Table          # pretty print
+$top | Export-Csv -NoTypeInformation -Path .\top.csv -Encoding utf8
+\end{lstlisting}
+
+Two things to notice:
+
+\begin{enumerate}[leftmargin=*]
+\item Every column comes back as a \emph{string}, even \texttt{score}.
+You have to cast with \texttt{[double]} (or \texttt{[int]},
+\texttt{[bool]}, \texttt{[datetime]}) before numeric comparisons.
+\item \texttt{-NoTypeInformation} is critical when writing -- otherwise
+\cmd{Export-Csv} prepends an annoying \texttt{\#TYPE} comment line
+that confuses every non-PowerShell consumer.
+\end{enumerate}
+
+\subsection*{Group by, aggregate}
+
+\begin{lstlisting}[style=pwshstyle]
+# Average score per role.
+Import-Csv .\users.csv |
+    Group-Object role |
+    ForEach-Object {
+        [PSCustomObject]@{
+            role         = $_.Name
+            n            = $_.Count
+            avg_score    = ($_.Group | Measure-Object {[double]$_.score} -Average).Average
+        }
+    } |
+    Sort-Object avg_score -Descending |
+    Format-Table
+\end{lstlisting}
+
+\subsection*{Joining two CSVs}
+
+PowerShell has no SQL-style \texttt{JOIN}, but the hashtable-as-index
+trick gets you the same answer with no extra dependencies. Suppose
+\texttt{orders.csv} has columns \texttt{order\_id,user\_id,amount}.
+
+\begin{lstlisting}[style=pwshstyle]
+# Build a lookup: user_id -> user object.
+$userById = @{}
+Import-Csv .\users.csv | ForEach-Object { $userById[$_.user_id] = $_ }
+
+# Stream orders, attach the user's name and role to each order.
+Import-Csv .\orders.csv |
+    ForEach-Object {
+        $u = $userById[$_.user_id]
+        [PSCustomObject]@{
+            order_id = [int]$_.order_id
+            user_id  = [int]$_.user_id
+            name     = $u.name
+            role     = $u.role
+            amount   = [double]$_.amount
+        }
+    } |
+    Export-Csv -NoTypeInformation -Path .\orders_joined.csv -Encoding utf8
+\end{lstlisting}
+
+This is O(n+m) and streams orders one at a time -- so it handles
+million-row order tables just fine as long as \texttt{users.csv} fits
+in RAM. For a many-to-many join, the lookup value becomes a list and
+you call \texttt{.Add()} on it.
+
+\subsection*{Different delimiters and encodings}
+
+\begin{lstlisting}[style=pwshstyle]
+Import-Csv .\eu_users.csv -Delimiter ';'            # European-style CSV
+Import-Csv .\data.tsv     -Delimiter "`t"           # tab-separated; backtick-t is the tab escape
+Import-Csv .\latin1.csv   -Encoding latin1
+\end{lstlisting}
+
+\subsection*{When to drop into Python}
+
+\cmd{Import-Csv} loads the whole file into memory as objects -- fine
+for tens of thousands of rows, slow for millions. For anything in
+\texttt{pandas} territory (joins, time-series resampling, vectorized
+math), let PowerShell handle the orchestration and shell out to a
+short Python script for the heavy work:
+
+\begin{lstlisting}[style=pwshstyle]
+# orchestrate from PowerShell, compute in pandas
+python -m my_pipeline.transform --input .\users.csv --output .\users_enriched.csv
+$enriched = Import-Csv .\users_enriched.csv
+\end{lstlisting}
+
+\begin{compare}
+\cmd{Import-Csv} is to \texttt{pandas.read\_csv} what
+\texttt{csv.DictReader} is to \texttt{pandas.read\_csv}: row-oriented,
+object-per-row, all values as strings unless you cast. Use it for
+small-to-medium files and orchestration; reach for pandas when you
+need columnar speed.
+\end{compare}
+
+% =========================================================
+\section{Data Wrangling -- JSON and HTTP}
+\label{sec:json}
+% =========================================================
+
+\subsection*{Parsing and emitting JSON}
+
+\begin{lstlisting}[style=pwshstyle]
+# Parse a JSON file into a real object.
+$config = Get-Content .\config.json -Raw | ConvertFrom-Json
+
+# Navigate with dot notation, just like in Python.
+$config.database.host
+$config.database.replicas[0].port
+
+# Modify and write back. -Depth defaults to 2, which is too shallow for
+# almost any real config. Always pass -Depth explicitly when writing.
+$config.database.host = 'mongo-prod-1'
+$config | ConvertTo-Json -Depth 10 | Set-Content -Path .\config.json -Encoding utf8
+\end{lstlisting}
+
+\begin{gotcha}
+\cmd{ConvertTo-Json}'s default \texttt{-Depth} is 2. Anything nested
+deeper than that gets stringified as \texttt{"System.Collections.Hashtable"}
+without warning. \textbf{Always pass \texttt{-Depth 10}} (or higher)
+for any non-trivial structure.
+\end{gotcha}
+
+\subsection*{Hitting a REST API}
+
+\cmd{Invoke-RestMethod} is one cmdlet that does
+\texttt{requests.get(...).json()} in one step: it sends the HTTP
+request \emph{and} parses the JSON response into a navigable object.
+
+\begin{lstlisting}[style=pwshstyle]
+# Simple GET.
+$resp = Invoke-RestMethod -Uri 'https://api.github.com/repos/python/cpython'
+$resp.stargazers_count
+$resp.license.spdx_id
+
+# GET with headers (e.g. bearer token from an env var).
+$headers = @{ Authorization = "Bearer $env:GITHUB_TOKEN" }
+$prs = Invoke-RestMethod -Uri 'https://api.github.com/repos/python/cpython/pulls?state=open' `
+                         -Headers $headers
+$prs | Select-Object number, title, user | Format-Table
+
+# POST with a JSON body.
+$body = @{ name = 'shiru'; role = 'DE' } | ConvertTo-Json -Depth 5
+Invoke-RestMethod -Uri 'https://httpbin.org/post' `
+                  -Method Post `
+                  -ContentType 'application/json' `
+                  -Body $body
+\end{lstlisting}
+
+The backtick at end-of-line is PowerShell's line-continuation
+character (the equivalent of bash's trailing backslash). Use it
+sparingly; most of the time you can just break inside parentheses
+or at a pipe symbol.
+
+\subsection*{Paginated APIs}
+
+A practical pattern -- consume a paginated REST endpoint and stream
+results into a single array.
+
+\begin{lstlisting}[style=pwshstyle]
+$all = @()
+$page = 1
+do {
+    $items = Invoke-RestMethod `
+        -Uri "https://api.example.com/items?page=$page&per_page=100" `
+        -Headers @{ Authorization = "Bearer $env:API_TOKEN" }
+    $all += $items
+    $page++
+} while ($items.Count -eq 100)
+
+$all | ConvertTo-Json -Depth 10 |
+    Set-Content -Path .\all_items.json -Encoding utf8
+\end{lstlisting}
+
+\begin{compare}
+The PowerShell version is shorter than the Python equivalent because
+\cmd{Invoke-RestMethod} bakes in JSON parsing and HTTP error handling.
+The trade-off: no async, no session pooling, fewer auth strategies.
+For high-throughput ingestion, use Python's \texttt{httpx} or
+\texttt{aiohttp}.
+\end{compare}
+
+\subsection*{Error handling and retries}
+
+\cmd{Invoke-RestMethod} throws a terminating error on non-2xx
+responses. Wrap calls in \texttt{try / catch} and inspect
+\texttt{\$\_.Exception.Response.StatusCode} to decide whether to
+retry, skip, or fail loudly.
+
+\begin{lstlisting}[style=pwshstyle]
+function Invoke-WithRetry {
+    param(
+        [string]$Uri,
+        [hashtable]$Headers = @{},
+        [int]$MaxAttempts = 5
+    )
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        try {
+            return Invoke-RestMethod -Uri $Uri -Headers $Headers
+        } catch {
+            $code = $_.Exception.Response.StatusCode.value__
+            if ($code -in 429, 500, 502, 503, 504) {
+                $backoff = [Math]::Pow(2, $attempt)
+                Write-Warning "HTTP $code on attempt $attempt; sleeping $backoff s"
+                Start-Sleep -Seconds $backoff
+            } else {
+                throw   # 4xx other than 429 -> don't retry
+            }
+        }
+    }
+    throw "Gave up after $MaxAttempts attempts: $Uri"
+}
+
+$data = Invoke-WithRetry -Uri 'https://api.example.com/items' `
+                         -Headers @{ Authorization = "Bearer $env:API_TOKEN" }
+\end{lstlisting}
+
+This is the same exponential-backoff pattern you'd write around
+\texttt{requests.get(...)} in Python, just in PowerShell's syntax.
+
+% =========================================================
+\section{Environment Variables and PATH}
+\label{sec:env}
+% =========================================================
+
+This is where you wire up credentials and config for AWS, MongoDB,
+MySQL, OpenAI, etc.
+
+\subsection*{Reading and writing in the current session}
+
+\begin{lstlisting}[style=pwshstyle]
+$env:AWS_PROFILE                 # read (returns $null if unset)
+$env:AWS_PROFILE = 'production'  # set for THIS process only
+Remove-Item Env:\AWS_PROFILE     # unset for this process
+
+# Inspect everything:
+Get-ChildItem Env:
+Get-ChildItem Env: | Where-Object Name -like 'AWS_*'
+
+# Inspect PATH (it's just a string, semicolon-separated on Windows):
+$env:Path -split ';'
+\end{lstlisting}
+
+\subsection*{Persisting across sessions}
+
+\texttt{\$env:FOO = '...'} only affects the current process. To make a
+variable stick across PowerShell restarts and reboots, write it to
+the user or machine environment:
+
+\begin{lstlisting}[style=pwshstyle]
+# User-scoped (just you, all your shells): persists across sessions
+[Environment]::SetEnvironmentVariable('AWS_PROFILE', 'production', 'User')
+
+# Read it back from the persisted store (not from the current process):
+[Environment]::GetEnvironmentVariable('AWS_PROFILE', 'User')
+
+# Machine-scoped (every user on this PC): requires admin shell
+[Environment]::SetEnvironmentVariable('CUDA_HOME', 'C:\CUDA\v12.5', 'Machine')
+
+# Prepending to PATH (user-scoped):
+$path = [Environment]::GetEnvironmentVariable('Path', 'User')
+[Environment]::SetEnvironmentVariable('Path', 'C:\tools;' + $path, 'User')
+\end{lstlisting}
+
+\begin{gotcha}
+Setting a User or Machine env var \emph{does not affect the current
+PowerShell session.} You must open a new shell, or refresh
+\texttt{\$env:Path} manually with
+\texttt{\$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')}.
+\end{gotcha}
+
+\subsection*{A practical credentials pattern}
+
+Don't paste credentials into scripts. Set them once at the user level,
+read them in the script via \texttt{\$env:NAME}.
+
+\begin{lstlisting}[style=pwshstyle]
+# One-time setup at the user level:
+[Environment]::SetEnvironmentVariable('AWS_ACCESS_KEY_ID',     'AKIA...', 'User')
+[Environment]::SetEnvironmentVariable('AWS_SECRET_ACCESS_KEY', '...',     'User')
+[Environment]::SetEnvironmentVariable('AWS_DEFAULT_REGION',    'us-east-1', 'User')
+[Environment]::SetEnvironmentVariable('MONGO_URI',             'mongodb+srv://...', 'User')
+[Environment]::SetEnvironmentVariable('MYSQL_HOST',            'db.internal', 'User')
+
+# In every later script, just read:
+$client = New-MongoClient -Uri $env:MONGO_URI
+\end{lstlisting}
+
+\begin{compare}
+Unix shells use \bcmd{export FOO=bar} (process-scoped, with the
+\texttt{.bashrc} / \texttt{.zshrc} dance for persistence). PowerShell
+gives you both knobs explicitly: \texttt{\$env:FOO = ...} for the
+process, \texttt{[Environment]::SetEnvironmentVariable(...)} for the
+registry-backed persistent store.
+\end{compare}
+
+% =========================================================
+\section{Python on Windows PowerShell}
+% =========================================================
+
+\subsection*{Where is Python?}
+
+\cmd{Get-Command} is your \texttt{which}:
+
+\begin{lstlisting}[style=pwshstyle]
+Get-Command python
+# CommandType  Name        Source
+# Application  python.exe  C:\Users\shiru\miniconda3\python.exe
+
+Get-Command python -All     # every python.exe on PATH, in order
+\end{lstlisting}
+
+If you have multiple Python installations (conda, the Microsoft Store
+Python, the official installer\dots), the first one on
+\texttt{\$env:Path} wins. \cmd{Get-Command python -All} shows them
+all so you can reorder PATH or pin a specific path in a script.
+
+\subsection*{The \texttt{py} launcher (optional)}
+
+The official Python installer for Windows ships a \texttt{py.exe}
+launcher that picks the right Python version from a single command.
+It is \emph{not} installed by Conda or Microsoft Store, so it may not
+be on your machine. If it is, you can do:
+
+\begin{lstlisting}[style=pwshstyle]
+py -0p             # list every Python interpreter the launcher knows about
+py -3.12 script.py # run with Python 3.12 specifically
+py -3 -m venv .venv
+\end{lstlisting}
+
+If you don't have \texttt{py}, just use \texttt{python} directly --
+nothing in this tutorial requires the launcher.
+
+\subsection*{Running scripts}
+
+\begin{lstlisting}[style=pwshstyle]
+python script.py                     # equivalent to bash: python3 script.py
+python -m pytest                     # run a module as a script
+python -m pip install requests       # always prefer `python -m pip` over bare `pip`
+python -c "import sys; print(sys.executable)"
+\end{lstlisting}
+
+The \texttt{python -m} form is portable across all OSes and avoids any
+ambiguity about which \texttt{pip} or \texttt{pytest} is on PATH.
+
+% =========================================================
+\section{Virtual Environments with \texttt{venv}}
+% =========================================================
+
+\subsection*{Create and activate}
+
+\begin{lstlisting}[style=pwshstyle]
+python -m venv .venv                 # create the venv in .\.venv
+.\.venv\Scripts\Activate.ps1         # activate it (note: \Scripts\, not \bin\)
+# Prompt becomes (.venv) PS C:\...>
+python -m pip install requests pandas boto3 pymongo mysql-connector-python
+deactivate                           # leaves the venv
+\end{lstlisting}
+
+\subsection*{The execution policy wall}
+
+The first time you run \texttt{Activate.ps1} on a Windows machine,
+you'll get this error:
+
+\begin{lstlisting}[style=pwshstyle]
+.\.venv\Scripts\Activate.ps1 : File C:\Users\shiru\Desktop\powershell\.venv\
+Scripts\Activate.ps1 cannot be loaded because running scripts is disabled on
+this system. ...
+\end{lstlisting}
+
+This is PowerShell's execution policy refusing to run unsigned local
+scripts. Fix it once, at the user scope (\textbf{never machine
+scope}), then forget about it:
+
+\begin{lstlisting}[style=pwshstyle]
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+\end{lstlisting}
+
+\texttt{RemoteSigned} means: local scripts run freely; scripts
+\emph{downloaded from the internet} must be signed or unblocked. This
+is the right balance for a developer machine, and it only affects
+your user account.
+
+\begin{compare}
+There is no Unix equivalent. The execution policy is a Windows-only
+trust mechanism. \texttt{Set-ExecutionPolicy -Scope CurrentUser
+RemoteSigned} is the universally-recommended one-time fix.
+\end{compare}
+
+\subsection*{Worked example: per-project venv}
+
+\begin{lstlisting}[style=pwshstyle]
+# From a fresh project directory:
+Set-Location C:\Users\shiru\projects\churn-model
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+# work, work, work...
+deactivate
+\end{lstlisting}
+
+To re-enter the venv tomorrow, the only command you need is
+\texttt{.\textbackslash{}.venv\textbackslash{}Scripts\textbackslash{}Activate.ps1}.
+
+% =========================================================
+\section{\texttt{uv} on PowerShell}
+% =========================================================
+
+\texttt{uv} is the fast Python package and project manager you
+already use. On Windows it installs without admin rights and
+integrates with PowerShell exactly the same way as on Linux.
+
+\subsection*{Install}
+
+The official installer is a single PowerShell command:
+
+\begin{lstlisting}[style=pwshstyle]
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+\end{lstlisting}
+
+\texttt{irm} is the alias for \cmd{Invoke-RestMethod}; \texttt{iex}
+is \cmd{Invoke-Expression}. Together they fetch the installer script
+and run it. After install, open a new PowerShell tab so \texttt{uv}
+appears on PATH, and verify:
+
+\begin{lstlisting}[style=pwshstyle]
+uv --version
+\end{lstlisting}
+
+\subsection*{Daily commands}
+
+\begin{lstlisting}[style=pwshstyle]
+# Start a new project (creates pyproject.toml, .venv, and uv.lock):
+uv init churn-model
+Set-Location churn-model
+
+# Add dependencies (updates pyproject.toml and uv.lock automatically):
+uv add pandas boto3 pymongo "mysql-connector-python>=8.3"
+uv add --dev pytest ruff
+
+# Run a Python script through uv (no manual activation needed):
+uv run python -m churn_model.train --input data\users.csv
+
+# Or run a one-off command in the project env:
+uv run pytest
+uv run ruff check .
+
+# Sync the env to match uv.lock exactly (use this on CI / a fresh clone):
+uv sync
+
+# Lock without installing (useful in CI):
+uv lock
+\end{lstlisting}
+
+\subsection*{When you do want to activate}
+
+\texttt{uv run} usually means you never have to activate the venv.
+But if you want a shell with the venv on PATH (e.g.\ for interactive
+work), activate it like any other venv:
+
+\begin{lstlisting}[style=pwshstyle]
+.\.venv\Scripts\Activate.ps1
+\end{lstlisting}
+
+\subsection*{Working with \texttt{requirements.txt}}
+
+If you have a legacy \texttt{requirements.txt}, \texttt{uv} has a fast
+pip-compatible interface:
+
+\begin{lstlisting}[style=pwshstyle]
+uv venv                                       # create .venv
+uv pip install -r requirements.txt           # fast pip install into .venv
+uv pip compile requirements.in -o requirements.txt   # resolve & pin
+uv pip sync requirements.txt                  # make .venv match requirements.txt EXACTLY
+\end{lstlisting}
+
+\begin{compare}
+The mental model: \texttt{uv} is to \texttt{pip + venv + pip-tools +
+virtualenv} what \texttt{cargo} is to Rust's loose tooling. \texttt{uv
+run} replaces \texttt{source .venv/bin/activate \&\& python ...} as a
+one-liner.
+\end{compare}
+
+% =========================================================
+\section{Putting It Together: A Mini ETL Walkthrough}
+% =========================================================
+
+This section ties everything together. Goal: read a CSV of users, hit a
+REST API to enrich each row with a profile lookup, run a small Python
+transformation in a \texttt{uv}-managed venv to compute a per-user
+score, write the result as JSON, log progress to a daily log file.
+
+\subsection*{Project layout}
+
+\begin{lstlisting}[style=pwshstyle,language=]
+C:\projects\enrich\
+    pyproject.toml         # managed by uv
+    uv.lock
+    .venv\                  # created by `uv venv`
+    data\
+        users.csv          # input
+    enrich.ps1             # the orchestrator (PowerShell)
+    score.py               # the transformation (Python)
+    logs\
+        enrich-2026-05-25.log
+\end{lstlisting}
+
+\subsection*{The Python transformation (\texttt{score.py})}
+
+\begin{lstlisting}[style=pwshstyle,language=]
+# score.py -- reads enriched rows from stdin (JSON lines),
+# emits scored rows to stdout (JSON lines).
+import json, sys
+
+for line in sys.stdin:
+    rec = json.loads(line)
+    base = float(rec.get("score", 0))
+    boost = 0.1 if rec.get("verified") else 0.0
+    rec["final_score"] = round(base + boost, 4)
+    sys.stdout.write(json.dumps(rec) + "\n")
+\end{lstlisting}
+
+\subsection*{The orchestrator (\texttt{enrich.ps1})}
+
+\begin{lstlisting}[style=pwshstyle]
+# enrich.ps1
+param(
+    [string]$Input  = '.\data\users.csv',
+    [string]$Output = '.\data\users_scored.json'
+)
+
+$ErrorActionPreference = 'Stop'
+
+# Set up a daily log file.
+$logDir = '.\logs'
+if (-not (Test-Path $logDir)) { New-Item -ItemType Directory $logDir | Out-Null }
+$logFile = Join-Path $logDir ("enrich-{0:yyyy-MM-dd}.log" -f (Get-Date))
+
+function Log {
+    param([string]$Msg)
+    $line = "{0:yyyy-MM-dd HH:mm:ss} {1}" -f (Get-Date), $Msg
+    Add-Content -Path $logFile -Value $line
+    Write-Output $line
+}
+
+Log "Reading $Input"
+$users = Import-Csv $Input
+
+Log "Enriching $($users.Count) users via API"
+$enriched = foreach ($u in $users) {
+    try {
+        $profile = Invoke-RestMethod -Uri "https://api.example.com/users/$($u.user_id)" `
+                                     -Headers @{ Authorization = "Bearer $env:API_TOKEN" }
+        [PSCustomObject]@{
+            user_id  = [int]$u.user_id
+            name     = $u.name
+            role     = $u.role
+            score    = [double]$u.score
+            verified = $profile.verified
+        }
+    } catch {
+        Log "WARN: failed to enrich user_id=$($u.user_id): $_"
+    }
+}
+
+Log "Scoring via Python in uv-managed venv"
+$jsonLines = $enriched | ForEach-Object { $_ | ConvertTo-Json -Compress -Depth 10 }
+$scored = $jsonLines | uv run python score.py | ForEach-Object {
+    $_ | ConvertFrom-Json
+}
+
+Log "Writing $($scored.Count) records to $Output"
+$scored | ConvertTo-Json -Depth 10 | Set-Content -Path $Output -Encoding utf8
+
+Log "Done"
+\end{lstlisting}
+
+\subsection*{Run it}
+
+\begin{lstlisting}[style=pwshstyle]
+$env:API_TOKEN = 'sk-...'
+.\enrich.ps1 -Input .\data\users.csv -Output .\data\users_scored.json
+\end{lstlisting}
+
+What this example shows, in one place:
+
+\begin{itemize}[leftmargin=*]
+\item Parameters with defaults (\texttt{param(...)}).
+\item Error policy (\texttt{\$ErrorActionPreference = 'Stop'}) so an
+unhandled error halts the script.
+\item File-system setup with \cmd{Test-Path} + \cmd{New-Item}.
+\item A small reusable function (\texttt{Log}).
+\item CSV input via \cmd{Import-Csv}, with typed casting on the way in.
+\item REST enrichment via \cmd{Invoke-RestMethod} with a bearer-token
+header from \texttt{\$env}.
+\item Hand-off to a Python script via \texttt{uv run python score.py},
+streaming JSON lines through stdin/stdout.
+\item JSON output with explicit \texttt{-Depth} and explicit
+\texttt{-Encoding}.
+\end{itemize}
+
+% =========================================================
+\section{Common Pitfalls}
+% =========================================================
+
+\textbf{Execution policy.} The first \texttt{Activate.ps1} run fails on
+every fresh Windows install. Fix once with
+\texttt{Set-ExecutionPolicy -Scope CurrentUser RemoteSigned}.
+
+\textbf{Path quoting.} Use double quotes around paths with spaces.
+The escape character is the backtick, not the backslash. To put a
+literal \texttt{\$} inside a double-quoted string, prefix it with a
+backtick: \texttt{"`\$5"}.
+
+\textbf{\cmd{ConvertTo-Json} depth.} The default \texttt{-Depth} is 2.
+Nested data silently turns into the string
+\texttt{"System.Collections.Hashtable"}. Always pass
+\texttt{-Depth 10} (or higher) for anything non-trivial.
+
+\textbf{File encoding.} \cmd{Out-File} and \cmd{Set-Content} have
+different defaults in PowerShell 5.1 vs.\ 7. Always pass
+\texttt{-Encoding utf8} when the file will be read by non-Windows
+tools.
+
+\textbf{\texttt{Import-Csv} columns are strings.} Cast with
+\texttt{[double]}, \texttt{[int]}, \texttt{[bool]},
+\texttt{[datetime]} before any numeric or date comparison.
+
+\textbf{\texttt{\$env:} doesn't persist.} Setting
+\texttt{\$env:FOO = 'bar'} only affects the current process. Use
+\texttt{[Environment]::SetEnvironmentVariable(...)} to persist.
+
+\textbf{Array \texttt{+=} is O(n).} For large collections, use
+\texttt{[System.Collections.Generic.List[object]]::new()} and call
+\texttt{.Add()}, or just emit items through the pipeline and let it
+do the right thing.
+
+\textbf{Here-string closer at column 0.} The closing
+\texttt{"@} or \texttt{'@} must be at the start of the line, with
+no leading whitespace. Indenting it is a parse error.
+
+\textbf{\texttt{-WhatIf} before destructive cmdlets.} Every
+\texttt{Remove-}, \texttt{Stop-}, \texttt{Clear-} cmdlet accepts
+\texttt{-WhatIf}. Make it a reflex.
+
+\textbf{PowerShell 5.1 vs.\ 7.} On a modern Windows install, the
+default \texttt{powershell.exe} is still PowerShell 5.1; the
+cross-platform \texttt{pwsh.exe} is PowerShell 7+. Anything in this
+tutorial that uses \texttt{utf8NoBOM} or \texttt{??} or the ternary
+operator is PowerShell 7 only. Always launch \texttt{pwsh}, not
+\texttt{powershell}, for new work.
+
+% =========================================================
+\section{Quick Reference: Bash $\to$ PowerShell}
+% =========================================================
+
+The minimal table you need pinned somewhere. PowerShell aliases
+(\texttt{ls}, \texttt{cd}, \texttt{cat}, \dots) work in the interactive
+shell but use the cmdlet name in scripts.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{p{0.42\linewidth} p{0.50\linewidth}}
+\toprule
+\textbf{Bash} & \textbf{PowerShell} \\
+\midrule
+\bcmd{pwd}                              & \cmd{Get-Location} \\
+\bcmd{cd /path}                          & \cmd{Set-Location} \texttt{C:\textbackslash{}path} \\
+\bcmd{ls}                                & \cmd{Get-ChildItem} \\
+\bcmd{ls -la}                            & \cmd{Get-ChildItem} \texttt{-Force} \\
+\bcmd{find . -name "*.csv"}              & \cmd{Get-ChildItem} \texttt{-Recurse -Filter *.csv} \\
+\bcmd{cat file}                          & \cmd{Get-Content} \texttt{file} \\
+\bcmd{head -n 10 file}                   & \cmd{Get-Content} \texttt{file -TotalCount 10} \\
+\bcmd{tail -n 10 file}                   & \cmd{Get-Content} \texttt{file -Tail 10} \\
+\bcmd{tail -f file}                      & \cmd{Get-Content} \texttt{file -Wait -Tail 0} \\
+\bcmd{wc -l file}                        & \texttt{(\cmd{Get-Content} file | \cmd{Measure-Object} -Line).Lines} \\
+\bcmd{grep PATTERN file}                 & \cmd{Select-String} \texttt{-Pattern PATTERN -Path file} \\
+\bcmd{which python}                      & \texttt{(\cmd{Get-Command} python).Source} \\
+\bcmd{mkdir dir}                         & \cmd{New-Item} \texttt{-ItemType Directory dir} \\
+\bcmd{mkdir -p a/b/c}                    & \cmd{New-Item} \texttt{-ItemType Directory -Force a\textbackslash{}b\textbackslash{}c} \\
+\bcmd{touch f}                           & \texttt{if (-not (Test-Path f)) \{ \cmd{New-Item} -ItemType File f \}} \\
+\bcmd{cp src dst}                        & \cmd{Copy-Item} \texttt{src dst} \\
+\bcmd{cp -r src dst}                     & \cmd{Copy-Item} \texttt{-Recurse src dst} \\
+\bcmd{mv src dst}                        & \cmd{Move-Item} \texttt{src dst} \\
+\bcmd{rm f}                              & \cmd{Remove-Item} \texttt{f} \\
+\bcmd{rm -rf dir}                        & \cmd{Remove-Item} \texttt{-Recurse -Force dir} \\
+\bcmd{ln -s tgt link}                    & \cmd{New-Item} \texttt{-ItemType SymbolicLink -Path link -Target tgt} \\
+\bcmd{echo \$VAR}                        & \texttt{\$env:VAR} \\
+\bcmd{export VAR=x}                      & \texttt{\$env:VAR = 'x'} \quad (process-scoped) \\
+\bcmd{export VAR=x} (persistent)          & \texttt{[Environment]::SetEnvironmentVariable('VAR','x','User')} \\
+\bcmd{cmd > out}                          & \texttt{cmd | \cmd{Set-Content} out} \\
+\bcmd{cmd >> out}                         & \texttt{cmd | \cmd{Add-Content} out} \\
+\bcmd{cmd1 \&\& cmd2}                     & \texttt{cmd1 \&\& cmd2} \quad (PowerShell 7+) \\
+\bcmd{cmd1 || cmd2}                       & \texttt{cmd1 || cmd2} \quad (PowerShell 7+) \\
+\bcmd{a=\$(cmd)}                          & \texttt{\$a = (cmd)} \\
+\bcmd{curl URL | jq .}                    & \texttt{\cmd{Invoke-RestMethod} URL} \\
+\bcmd{2>/dev/null}                        & \texttt{2>\$null} \\
+\bcmd{for f in *.csv; do \dots done}      & \texttt{\cmd{Get-ChildItem} *.csv | \cmd{ForEach-Object} \{ \dots \}} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{1em}
+\noindent\textit{One last thing:} when you're stuck, the answer almost
+always starts with \cmd{Get-Command} \texttt{*word*} (find the
+cmdlet), \cmd{Get-Help} \texttt{NAME -Examples} (see how to use
+it), and \cmd{Get-Member} (see what properties an object has).
+PowerShell rewards discovery in a way bash never did.
+
+\end{document}

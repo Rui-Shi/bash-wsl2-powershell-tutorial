@@ -1,0 +1,9 @@
+# Ignore LaTeX build artifacts
+*.aux
+*.toc
+*.out
+*.log
+
+# Ignore Windows/OS junk
+Thumbs.db
+.DS_Store
