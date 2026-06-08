@@ -214,8 +214,9 @@ stdout to the next command's stdin. Redirection (\texttt{>},
 everything is bytes, you compose programs out of small text-processing
 tools: \texttt{grep} finds lines, \texttt{awk} slices columns,
 \texttt{sed} edits substrings, \texttt{jq} navigates JSON,
-\texttt{sort} and \texttt{uniq} aggregate. Master this composition
-pattern and you can solve any data-shaping problem on the command line.
+\texttt{sort} and \texttt{uniq} aggregate. Once this way of joining
+small tools clicks, most day-to-day data-shaping problems become a
+short pipeline.
 
 \begin{compareps}
 PowerShell pipes \emph{objects} (records with named properties); bash
@@ -303,7 +304,7 @@ editing files in \texttt{/etc/}, managing services. \textbf{Never} use
 % =========================================================
 \section{The Linux Filesystem and Where Your Code Lives}
 
-The single most important WSL2 lesson: \textbf{keep your code under
+The most important WSL2 habit: \textbf{keep your code under
 \texttt{\textasciitilde{}/projects/}, not \texttt{/mnt/c/}}. The
 \texttt{/mnt/c/} mount lets you see your Windows \texttt{C:} drive
 from Linux, which is convenient -- but it goes through a translation
@@ -358,7 +359,7 @@ code .
 
 VS Code launches on Windows, but the editor, terminal, debugger,
 and language servers all run inside Ubuntu. Your venvs activate
-correctly; your file paths are POSIX; everything Just Works.
+correctly and your file paths are POSIX, with no extra setup.
 
 \begin{gotcha}
 If you ever see file paths like \texttt{C:\textbackslash{}Users\textbackslash{}shiru\textbackslash{}projects}
@@ -423,7 +424,7 @@ ls report_2026-??.csv     # ? matches exactly one char: 2026-01..2026-99
 ls report_2026-[01][0-9].csv  # only months 00-19
 \end{lstlisting}
 
-\subsection*{Tab completion is the killer feature}
+\subsection*{Tab completion saves the most typing}
 
 Hit \texttt{Tab} after typing the first few letters of any
 command, filename, or argument and bash completes it (or shows
@@ -462,8 +463,8 @@ keeps the default \texttt{644}.
 % =========================================================
 \section{Pipes, Streams, and Redirection}
 
-This is the section that pays for the whole tutorial. The four
-fundamental ideas:
+If you learn one thing from this tutorial, make it this section.
+Four ideas hold the whole model together:
 
 \begin{enumerate}[leftmargin=*]
 \item Every command reads from \texttt{stdin} (file descriptor 0)
@@ -574,7 +575,7 @@ echo "${name}_v2"         # shiru_v2  (without braces, bash would look for $name
 \texttt{FOO=bar}, no spaces.
 \end{gotcha}
 
-\subsection*{Quoting: the one rule you must internalize}
+\subsection*{Quoting: the rule worth memorizing}
 
 \begin{itemize}[leftmargin=*]
 \item \textbf{Double quotes} interpolate \texttt{\$VAR} and
@@ -600,8 +601,8 @@ ls my file.txt            # tries to ls TWO files: "my" and "file.txt"
 
 \subsection*{Parameter expansion}
 
-The single most useful family of bash features. \texttt{\$\{VAR\}}
-extends to a rich mini-language:
+One of the most useful bash features. \texttt{\$\{VAR\}} grows into
+a small language for trimming and editing strings:
 
 \begin{lstlisting}[style=bashstyle]
 name="users.csv"
@@ -670,7 +671,7 @@ echo ${lines[0]}             # first line
 \begin{comparepy}
 Bash arrays are like Python lists, but indexing is via
 \texttt{\$\{arr[i]\}} (not \texttt{arr[i]}), length is
-\texttt{\$\{\#arr[@]\}} (not \texttt{len(arr)}), and -- crucially
+\texttt{\$\{\#arr[@]\}} (not \texttt{len(arr)}), and -- importantly
 -- you must quote \texttt{"\$\{arr[@]\}"} when expanding, or
 elements with spaces split into multiple arguments. Bash also has
 \emph{associative arrays} (\texttt{declare -A}), which are like
@@ -683,9 +684,9 @@ before you need them.
 \section{The Essential Text Toolkit}
 \label{sec:texttoolkit}
 
-The five tools that turn bash into a data engineer's playground:
-\cmd{grep}, \cmd{sed}, \cmd{awk}, \cmd{sort}, \cmd{uniq}. Learn
-them in this order, in roughly this depth.
+These five tools handle most text work in bash: \cmd{grep},
+\cmd{sed}, \cmd{awk}, \cmd{sort}, \cmd{uniq}. Learn them in this
+order, to roughly this depth.
 
 \subsection*{\texttt{grep} -- find lines}
 
@@ -699,6 +700,18 @@ grep -n ERROR app.log          # prefix each match with its line number
 grep -r ERROR ~/projects        # recurse through a directory tree
 grep -E '^(ERR|WARN)' app.log  # extended regex (alternation needs -E)
 grep -A 3 -B 1 ERROR app.log   # 3 lines After, 1 line Before each match
+grep -w id app.log             # whole word only (won't match "video" or "ident")
+grep -o '[0-9]\+' app.log      # print ONLY the matched part, not the whole line
+grep -rn TODO ~/projects/src   # recurse + line numbers: find every TODO comment
+grep -f patterns.txt names.txt # match any pattern listed in patterns.txt
+grep -P '(?<=user=)\w+' app.log # Perl regex: text after "user=" (lookbehind)
+\end{lstlisting}
+
+A common pairing -- count how many times each distinct error code appears:
+
+\begin{lstlisting}[style=bashstyle]
+# Pull every "code=NNN" token, then tally the codes:
+grep -oE 'code=[0-9]+' app.log | sort | uniq -c | sort -nr
 \end{lstlisting}
 
 \subsection*{\texttt{sed} -- search and replace, line by line}
@@ -717,6 +730,18 @@ sed '/^DEBUG/d' app.log
 
 # Replace using regex backreferences:
 sed -E 's/^([A-Z]+)-([0-9]+)$/\2,\1/' tickets.txt
+
+# Substitute only on lines that match an address (here: lines containing ERROR):
+sed '/ERROR/ s/timeout/TIMEOUT/g' app.log
+
+# Run several edits in one pass with -e (or separate them with ;):
+sed -e 's/,/\t/g' -e 's/"//g' data.csv   # commas to tabs, then strip quotes
+
+# Print every other line (1~2 = start at line 1, step by 2):
+sed -n '1~2p' file.txt
+
+# Insert a line before (i) or append a line after (a) each match:
+sed '/^#!/a set -euo pipefail' script.sh  # add a line after the shebang
 \end{lstlisting}
 
 \begin{gotcha}
@@ -726,11 +751,11 @@ to keep a backup. If a script needs to run on both, use \texttt{gsed}
 or just shell out to Python.
 \end{gotcha}
 
-\subsection*{\texttt{awk} -- the data engineer's secret weapon}
+\subsection*{\texttt{awk} -- split each line into columns}
 
-\texttt{awk} treats each line as a record split into fields. The
-default field separator is whitespace; \texttt{-F,} sets it to a
-comma.
+\texttt{awk} reads each line as a record split into fields, then
+lets you filter rows or do math on the columns. The default field
+separator is whitespace; \texttt{-F,} sets it to a comma.
 
 \begin{lstlisting}[style=bashstyle]
 # Print the first column of every line:
@@ -748,6 +773,25 @@ awk -F, 'NR>1 {sum += $3; n++} END {print sum/n}' users.csv
 
 # Group by + count -- "how many rows per role?":
 awk -F, 'NR>1 {n[$3]++} END {for (r in n) print r, n[r]}' users.csv
+
+# Two conditions at once (DE rows with score over 0.8):
+awk -F, 'NR>1 && $3=="DE" && $5 > 0.8 {print $2}' users.csv
+
+# Set input AND output separators once in BEGIN, then reformat with printf:
+awk 'BEGIN {FS=","; OFS="\t"} NR>1 {printf "%-10s %6.2f\n", $2, $5}' users.csv
+
+# Track a running maximum and report which row held it:
+awk -F, 'NR>1 && $5 > max {max=$5; who=$2} END {print who, max}' users.csv
+\end{lstlisting}
+
+\textbf{Joining two files.} The trick is \texttt{NR==FNR}, which is
+true only while \texttt{awk} reads the first file (\texttt{FNR} resets
+per file, \texttt{NR} does not). Use the first pass to load a lookup
+table, the second to use it:
+
+\begin{lstlisting}[style=bashstyle]
+# roles.csv: role_code,role_name   |   users.csv: ...,role_code,...
+awk -F, 'NR==FNR {name[$1]=$2; next} {print $2, name[$3]}' roles.csv users.csv
 \end{lstlisting}
 
 \subsection*{\texttt{sort} and \texttt{uniq}}
@@ -756,14 +800,25 @@ awk -F, 'NR>1 {n[$3]++} END {for (r in n) print r, n[r]}' users.csv
 sort file.txt                  # alphabetic sort
 sort -n file.txt               # numeric sort
 sort -r file.txt               # reverse
+sort -u file.txt               # sort AND drop duplicates in one step
+sort -h sizes.txt              # human sizes sort correctly (2K < 1M < 3G)
 sort -k 2 -n -r file.txt       # sort by 2nd column, numerically, descending
 sort -t, -k 3 -n -r data.csv   # CSV: -t, sets the separator
+sort -t, -k1,1 -k3,3nr data.csv # group by col 1, then col 3 high-to-low within
 
 uniq file.txt                  # collapse adjacent duplicates
-sort file.txt | uniq           # the canonical "unique values" idiom
+sort file.txt | uniq           # the usual "unique values" idiom
 sort file.txt | uniq -c        # count each unique value
+sort file.txt | uniq -d        # show ONLY values that are duplicated
 sort file.txt | uniq -c | sort -nr  # top values by count
 \end{lstlisting}
+
+\begin{gotcha}
+\texttt{uniq} only removes \emph{adjacent} duplicates, so it almost
+always needs a \texttt{sort} in front of it. \texttt{sort file | uniq}
+is correct; \texttt{uniq file} alone misses duplicates that aren't
+already next to each other.
+\end{gotcha}
 
 \subsection*{Worked example: top 5 IPs in an access log}
 
@@ -778,9 +833,9 @@ awk '{print $1}' access.log |   # extract the IP (1st column)
     head -5                      # take the top 5
 \end{lstlisting}
 
-That's a complete data pipeline in five lines, with no Python, no
-dependencies, no parsing libraries -- and it runs in milliseconds
-on a million-line log.
+That is a full data pipeline in five lines, with no Python and no
+extra libraries. It also stays fast on large files: a million-line
+log finishes in well under a second.
 
 \subsection*{Other tools worth knowing}
 
@@ -794,6 +849,40 @@ wc -l file.txt                 # count lines
 wc -c file.txt                 # count bytes
 xargs                          # turn stdin into command-line arguments
 \end{lstlisting}
+
+\subsection*{\texttt{find} -- locate files by name, age, or size}
+
+\texttt{grep} searches \emph{inside} files; \texttt{find} searches
+\emph{for} files by their attributes. You give it a starting
+directory and one or more tests.
+
+\begin{lstlisting}[style=bashstyle]
+find . -name '*.csv'              # every .csv under the current dir (recursive)
+find . -iname '*.CSV'             # same, case-insensitive
+find . -type f -name '*.log'      # files only (-type d for directories)
+find logs -type f -mtime -7       # modified in the last 7 days
+find . -type f -size +10M         # larger than 10 MB (+ = more, - = less)
+find . -type f -empty             # zero-byte files
+find . -maxdepth 1 -type d        # immediate subdirectories only (don't recurse)
+\end{lstlisting}
+
+Run a command on each match with \texttt{-exec} (\texttt{\{\}} is the
+filename, \texttt{\textbackslash;} ends the command), or pipe the list
+to another tool. For filenames with spaces, the \texttt{-print0 | xargs
+-0} pair is the safe form:
+
+\begin{lstlisting}[style=bashstyle]
+find . -name '*.tmp' -delete                  # delete every .tmp file
+find . -name '*.py' -exec wc -l {} +          # count lines in all Python files
+find . -name '*.json' -print0 | xargs -0 jq . # pretty-print each, spaces-safe
+\end{lstlisting}
+
+\begin{gotcha}
+\texttt{find . -delete} is irreversible and acts on \emph{everything}
+the tests match. Run the same \texttt{find} \emph{without}
+\texttt{-delete} first to see the list, then add it back once the
+output looks right.
+\end{gotcha}
 
 \clearpage
 % =========================================================
@@ -868,8 +957,8 @@ csvstat users.csv                               # describe each column
 csvsql --query "SELECT role, AVG(score) FROM users GROUP BY role" users.csv
 \end{lstlisting}
 
-\texttt{csvsql} is killer for ad-hoc analysis: full SQLite SQL, run
-against any CSV, no schema definition needed.
+\texttt{csvsql} is handy for quick analysis: full SQLite SQL, run
+against any CSV, with no schema to define first.
 
 \subsection*{When to drop into Python}
 
@@ -891,10 +980,9 @@ you need joins or numeric heavy lifting.
 \section{JSON with \texttt{jq}}
 \label{sec:jq}
 
-\texttt{jq} is to JSON what \texttt{awk} is to text: small,
-composable, ubiquitous. Every modern API speaks JSON; every modern
-config file is JSON or YAML. \texttt{jq} is how you read and
-transform them from the shell.
+\texttt{jq} does for JSON what \texttt{awk} does for plain text: it
+reads, filters, and reshapes it from the shell. Most APIs return
+JSON, so you will use \texttt{jq} a lot.
 
 \subsection*{Selectors}
 
@@ -917,6 +1005,9 @@ jq '.roles' user.json            # ["DE","MLE"]
 jq '.roles[0]' user.json         # "DE"
 jq '.roles[]' user.json          # "DE"\n"MLE"  (emits each as separate value)
 jq '.scores.q1' user.json        # 0.91
+jq 'keys' user.json              # ["id","name","roles","scores"]
+jq '.roles | length' user.json   # 2   (length works on arrays, objects, strings)
+jq -r '.nickname // "none"' user.json  # fall back to "none" if .nickname is missing
 \end{lstlisting}
 
 \subsection*{Filtering arrays}
@@ -942,6 +1033,16 @@ jq '.[] | {name, role}' users.json
 
 # Group by role -- the "GROUP BY" idiom:
 jq 'group_by(.role) | map({role: .[0].role, n: length, avg: (map(.score) | add/length)})' users.json
+
+# Sort by a field, highest first, and keep the top 2:
+jq 'sort_by(.score) | reverse | .[0:2]' users.json
+
+# Emit CSV rows (with -r so they aren't quoted as JSON strings):
+jq -r '.[] | [.name, .role, .score] | @csv' users.json
+# "Alice","DE",0.91
+
+# Turn an object into key/value rows:
+jq '.[0] | to_entries[] | "\(.key)=\(.value)"' users.json
 \end{lstlisting}
 
 \subsection*{The canonical idiom: \texttt{curl | jq}}
@@ -961,22 +1062,25 @@ jq '.name = "shiru-new"' user.json > user.tmp.json && mv user.tmp.json user.json
 # Build a JSON object from shell variables:
 jq -n --arg name "$USER" --argjson n 42 '{user: $name, count: $n}'
 # {"user":"shiru","count":42}
+
+# Slurp many separate JSON values (e.g. one-object-per-line) into one array:
+jq -s '.' events.jsonl > events.json   # -s = --slurp
 \end{lstlisting}
 
 \begin{compareps}
-\texttt{jq} is the shell-native equivalent of PowerShell's
-\pscmd{ConvertFrom-Json} / \pscmd{ConvertTo-Json} -- with one big
-upgrade: it has no \texttt{-Depth} footgun. \texttt{jq} preserves
-arbitrary nesting by default. The trade-off is that \texttt{jq}'s
-filter language is its own DSL, with a learning curve.
+\texttt{jq} is the shell equivalent of PowerShell's
+\pscmd{ConvertFrom-Json} / \pscmd{ConvertTo-Json}, with one
+advantage: it keeps nested data at any depth by default, so there
+is no \texttt{-Depth} limit to remember. The trade-off is that
+\texttt{jq} has its own filter language to learn.
 \end{compareps}
 
 % =========================================================
 \section{HTTP and APIs with \texttt{curl}}
 
-\texttt{curl} is the swiss-army HTTP client. It's installed
-everywhere, supports every protocol you'll need, and pipes
-straight into \texttt{jq}.
+\texttt{curl} is a flexible HTTP client. It is installed almost
+everywhere, handles the protocols you will need, and pipes straight
+into \texttt{jq}.
 
 \subsection*{Basic GET}
 
@@ -1009,6 +1113,20 @@ curl -s -H "Content-Type: application/json" -d @body.json https://api.example.co
 
 # Save the response to a file:
 curl -sL https://example.com/big.csv -o big.csv
+curl -sL -O https://example.com/big.csv     # -O keeps the remote name (big.csv)
+
+# --fail makes curl exit non-zero on a 404/500 instead of saving the error page.
+# Pair it with -s -S: silent progress, but still print real errors.
+curl -fsS https://api.example.com/health || echo "request failed"
+
+# Build query parameters safely (curl URL-encodes each value):
+curl -sG https://api.example.com/search \
+    --data-urlencode "q=data engineer" \
+    --data-urlencode "limit=10"
+
+# PUT or DELETE with -X, body from a file with -d @:
+curl -s -X PUT -H "Content-Type: application/json" \
+    -d @user.json https://api.example.com/users/42
 
 # Useful debugging flags:
 curl -v ...        # verbose: show request/response headers
@@ -1038,8 +1156,8 @@ rm "$all"
 This is the shell version of the \pcmd{requests.get(\dots,
 params=\{...\}).json()} pattern, with \pcmd{jq} replacing manual
 JSON traversal. For high-throughput ingestion you'd reach for
-Python's \texttt{httpx} or \texttt{aiohttp}; for ad-hoc API
-exploration, \texttt{curl + jq} is hard to beat.
+Python's \texttt{httpx} or \texttt{aiohttp}. For quick API checks
+from the terminal, \texttt{curl + jq} is usually faster to write.
 \end{comparepy}
 
 \clearpage
@@ -1258,8 +1376,8 @@ uv pip sync requirements.txt                         # make .venv match EXACTLY
 \section{Docker on WSL2}
 \label{sec:docker}
 
-Docker on WSL2 is the easiest Linux Docker setup that exists. Two
-paths to install it:
+Docker on WSL2 is one of the simplest Linux Docker setups to get
+running. There are two ways to install it:
 
 \subsection*{Path A: Docker Desktop with the WSL2 backend (recommended)}
 
@@ -1284,7 +1402,7 @@ you're on a larger team.
 If you'd rather have no Windows-side service, install Docker's
 \texttt{rootless} variant entirely inside WSL2. The official one-liner
 is at \texttt{https://docs.docker.com/engine/security/rootless/}. The
-trade-offs: a slightly less seamless experience (you start the
+trade-offs: a slightly less smooth experience (you start the
 daemon manually), but full isolation from Windows.
 
 \subsection*{Daily commands}
@@ -1374,9 +1492,9 @@ docker run --rm -p 8000:8000 myapp:dev
 
 WSL2 supports NVIDIA GPU passthrough out of the box, which means
 your PyTorch and TensorFlow installs inside Ubuntu can use your
-Windows GPU for training. The single most important rule: \textbf{do
+Windows GPU for training. The one rule that matters most: \textbf{do
 not install a Linux NVIDIA driver inside Ubuntu.} The GPU is
-shared from Windows; the only driver that should exist is the
+shared from Windows, so the only driver you should have is the
 Windows one.
 
 \subsection*{Setup checklist}
@@ -1509,9 +1627,9 @@ chmod +x hello.sh
 # hello, shiru
 \end{lstlisting}
 
-\subsection*{The discipline four: \texttt{set -euo pipefail}}
+\subsection*{The safety line: \texttt{set -euo pipefail}}
 
-Put this at the top of every non-trivial bash script:
+Put this near the top of every non-trivial bash script:
 
 \begin{lstlisting}[style=bashstyle]
 #!/usr/bin/env bash
@@ -1778,8 +1896,8 @@ streaming JSON lines through stdin/stdout.
 
 \section{Common Pitfalls}
 
-The list of bash footguns every newcomer hits exactly once. Read it
-once, recognize them next time.
+The common bash mistakes that catch almost every newcomer once.
+Read them now, and you'll recognize them next time.
 
 \textbf{\texttt{FOO = bar} (spaces) is not assignment.} Bash parses
 it as "run the command \texttt{FOO} with arguments \texttt{=} and
@@ -1887,13 +2005,12 @@ equivalent there.
 
 \vspace{1em}
 \noindent
-\textbf{Last advice.} When you're stuck, the answer almost always
-starts with one of three commands: \cmd{man cmd} (the manual page),
-\cmd{cmd --help} (the short help), or \cmd{type cmd} (is it a
-built-in, an alias, or a binary on \texttt{PATH}?). Bash rewards a
-small set of well-learned tools over a large set of half-known
-ones -- pick five from this tutorial (\texttt{grep}, \texttt{awk},
-\texttt{jq}, \texttt{curl}, \texttt{uv}) and use them every day for
-two weeks. You'll be fluent.
+\textbf{One last suggestion.} When you're stuck, start with one of
+three commands: \cmd{man cmd} (the manual page), \cmd{cmd --help}
+(the short help), or \cmd{type cmd} (is it a built-in, an alias, or
+a binary on \texttt{PATH}?). A few well-learned tools beat a long
+list of half-known ones. Pick five from this tutorial (\texttt{grep},
+\texttt{awk}, \texttt{jq}, \texttt{curl}, \texttt{uv}) and use them
+every day for two weeks; they'll start to feel natural.
 
 \end{document}

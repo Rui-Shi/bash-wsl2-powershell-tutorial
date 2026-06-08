@@ -146,8 +146,8 @@ matter.
 \section{What PowerShell Is (and Isn't)}
 % =========================================================
 
-The single most important thing to internalize before you write any
-PowerShell: \textbf{PowerShell pipes objects, not text.}
+The one idea to grasp before you write any PowerShell:
+\textbf{PowerShell pipes objects, not text.}
 
 In bash, every command emits a stream of bytes, and the next command in the
 pipeline parses those bytes back into a structure. If you want the size of
@@ -201,9 +201,9 @@ Get-Help Import-Csv -Full   # the full help page (parameters, examples)
 Get-Item .\data.csv | Get-Member   # list every property and method of an object
 \end{lstlisting}
 
-\cmd{Get-Member} is the secret weapon: \emph{pipe anything to it} and
-PowerShell tells you exactly which properties and methods that object
-exposes. This is how you discover, for example, that the result of
+\cmd{Get-Member} is the one to reach for first: \emph{pipe anything to
+it} and PowerShell lists the properties and methods that object
+exposes. This is how you find out, for example, that the result of
 \cmd{Invoke-RestMethod} on a JSON endpoint is already a real object with
 dot-accessible properties.
 
@@ -286,8 +286,8 @@ command before a \texttt{find -delete} to inspect the matches. With
 \section{The Object Pipeline}
 % =========================================================
 
-This is the section that pays for the whole tutorial. If you only learn
-five PowerShell cmdlets, learn these:
+This is the most useful section in the tutorial. If you only learn
+five PowerShell cmdlets, make them these:
 
 \begin{center}
 \begin{tabular}{ll}
@@ -370,6 +370,47 @@ These operators broadcast naturally over collections, so
 trick lets you do quick set filters without an explicit
 \cmd{Where-Object} call.
 
+\subsection*{Picking columns and rows with \texttt{Select-Object}}
+
+\cmd{Select-Object} chooses which properties to keep and how many
+objects to pass on. A few forms you'll use constantly:
+
+\begin{lstlisting}[style=pwshstyle]
+Get-Process | Select-Object Name, CPU, Id      # keep only these properties
+Get-Process | Select-Object -First 5           # first 5 objects (like head)
+Get-Process | Select-Object -Last 5            # last 5 (like tail)
+Get-ChildItem | Select-Object -Unique Extension # drop duplicate values
+
+# -ExpandProperty unwraps a single property to its raw value (not an object):
+Get-Process | Select-Object -ExpandProperty Name   # plain strings, not objects
+
+# A calculated property adds a column computed on the fly:
+Get-ChildItem -File |
+    Select-Object Name,
+                  @{ Name = 'SizeKB'; Expression = { [math]::Round($_.Length / 1KB, 1) } }
+\end{lstlisting}
+
+The \texttt{@\{ Name = ...; Expression = \{ ... \} \}} hashtable is how
+you rename or derive a column -- the rough equivalent of pandas'
+\texttt{df.assign(SizeKB = df.Length / 1024)}.
+
+\subsection*{Transforming each item with \texttt{ForEach-Object}}
+
+\cmd{ForEach-Object} runs a script block once per item. In PowerShell 7+
+you can also pass a property or method name directly, which is shorter:
+
+\begin{lstlisting}[style=pwshstyle]
+1..3 | ForEach-Object { $_ * $_ }          # 1, 4, 9
+Get-ChildItem *.log | ForEach-Object Name  # shorthand: just the Name property
+'a.txt', 'b.txt' | ForEach-Object { $_.ToUpper() }  # call a method per item
+
+# -Begin runs once before, -End once after -- handy for running totals:
+Get-ChildItem -File |
+    ForEach-Object -Begin { $total = 0 } `
+                   -Process { $total += $_.Length } `
+                   -End { "Total bytes: $total" }
+\end{lstlisting}
+
 \subsection*{Group, count, summarize}
 
 Counting events by category is one line:
@@ -380,17 +421,25 @@ Get-ChildItem -Recurse -File |
     Group-Object Extension |
     Sort-Object Count -Descending |
     Select-Object Count, Name
+
+# -NoElement keeps just the counts (drops the grouped objects -- much lighter):
+Get-ChildItem -Recurse -File | Group-Object Extension -NoElement
 \end{lstlisting}
 
-\cmd{Measure-Object} does numeric aggregation:
+\cmd{Measure-Object} does numeric aggregation -- pass the flags for the
+statistics you want:
 
 \begin{lstlisting}[style=pwshstyle]
 Get-ChildItem -Recurse -File |
-    Measure-Object Length -Sum -Average -Maximum
-# Count : 1842
+    Measure-Object Length -Sum -Average -Maximum -Minimum
+# Count   : 1842
 # Average : 28734.21
 # Sum     : 52928711
 # Maximum : 14523904
+# Minimum : 12
+
+# It also counts lines, words, and characters in text:
+Get-Content .\app.log | Measure-Object -Line -Word -Character
 \end{lstlisting}
 
 \subsection*{Parallel execution (PowerShell 7+)}
@@ -546,8 +595,8 @@ if ($null -eq $row.email) { Write-Output "email is missing" }
 \section{Strings and Formatting}
 % =========================================================
 
-PowerShell strings come in four useful forms. Pick the right one to
-avoid the most common Windows footgun (mangled escapes).
+PowerShell strings come in four useful forms. Picking the right one
+avoids a common Windows headache: escapes that get mangled.
 
 \begin{lstlisting}[style=pwshstyle]
 $name = 'shiru'
@@ -640,7 +689,7 @@ Get-Content .\huge.log -ReadCount 0 | ForEach-Object {
 
 \subsection*{Encoding}
 
-The single most common Windows footgun: \cmd{Set-Content} and
+A frequent source of cross-platform bugs: \cmd{Set-Content} and
 \cmd{Out-File} write UTF-8 \emph{with BOM} by default in PowerShell 5.1
 and UTF-8 \emph{without BOM} in PowerShell 7+. If you're writing data
 that will be read by a non-Windows tool (Python's
@@ -663,10 +712,10 @@ pass \texttt{-Encoding utf8}} explicitly.
 \label{sec:csv}
 % =========================================================
 
-This is where PowerShell starts to feel genuinely good for data work.
-\cmd{Import-Csv} reads a CSV and yields \textbf{one object per row},
-with column names as properties. No manual splitting, no quoting bugs,
-no off-by-one indexing.
+This is where PowerShell starts to feel good for data work.
+\cmd{Import-Csv} reads a CSV and gives back \textbf{one object per row},
+with the column names as properties. No manual splitting, no quoting
+bugs, no off-by-one column indexes.
 
 Example file \texttt{users.csv}:
 \begin{lstlisting}[style=pwshstyle,language=]
@@ -689,6 +738,12 @@ $top = $users |
 
 $top | Format-Table          # pretty print
 $top | Export-Csv -NoTypeInformation -Path .\top.csv -Encoding utf8
+
+# Add a derived column with a calculated property, then write it out:
+$users |
+    Select-Object name, role,
+                  @{ Name = 'score_pct'; Expression = { [int]([double]$_.score * 100) } } |
+    Export-Csv -NoTypeInformation -Path .\users_pct.csv -Encoding utf8
 \end{lstlisting}
 
 Two things to notice:
@@ -791,9 +846,18 @@ need columnar speed.
 # Parse a JSON file into a real object.
 $config = Get-Content .\config.json -Raw | ConvertFrom-Json
 
+# Or parse a JSON string you already have in a variable.
+$obj = '{"id": 42, "tags": ["a", "b"]}' | ConvertFrom-Json
+$obj.tags[0]            # 'a'
+
 # Navigate with dot notation, just like in Python.
 $config.database.host
 $config.database.replicas[0].port
+
+# Build an object and emit JSON (-Compress gives one line, no whitespace):
+[PSCustomObject]@{ user = 'shiru'; roles = @('DE', 'MLE') } |
+    ConvertTo-Json -Compress
+# {"user":"shiru","roles":["DE","MLE"]}
 
 # Modify and write back. -Depth defaults to 2, which is too shallow for
 # almost any real config. Always pass -Depth explicitly when writing.
@@ -819,6 +883,11 @@ request \emph{and} parses the JSON response into a navigable object.
 $resp = Invoke-RestMethod -Uri 'https://api.github.com/repos/python/cpython'
 $resp.stargazers_count
 $resp.license.spdx_id
+
+# GET with query parameters: pass a hashtable to -Body and PowerShell
+# URL-encodes it onto the URL (?q=data+engineer&limit=10).
+$resp = Invoke-RestMethod -Uri 'https://api.example.com/search' `
+                          -Body @{ q = 'data engineer'; limit = 10 }
 
 # GET with headers (e.g. bearer token from an env var).
 $headers = @{ Authorization = "Bearer $env:GITHUB_TOKEN" }
@@ -1389,10 +1458,10 @@ shell but use the cmdlet name in scripts.
 \end{center}
 
 \vspace{1em}
-\noindent\textit{One last thing:} when you're stuck, the answer almost
-always starts with \cmd{Get-Command} \texttt{*word*} (find the
-cmdlet), \cmd{Get-Help} \texttt{NAME -Examples} (see how to use
-it), and \cmd{Get-Member} (see what properties an object has).
-PowerShell rewards discovery in a way bash never did.
+\noindent\textit{One last thing:} when you're stuck, start with
+\cmd{Get-Command} \texttt{*word*} (find the cmdlet), \cmd{Get-Help}
+\texttt{NAME -Examples} (see how to use it), and \cmd{Get-Member}
+(see what properties an object has). These three make PowerShell easy
+to explore on your own, without leaving the shell.
 
 \end{document}
